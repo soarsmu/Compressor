@@ -14,9 +14,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, 
 logger = logging.getLogger(__name__)
 
 
-def train(args, train_dataset, model, tokenizer, pool):
+def train(args, train_dataset, model, tokenizer):
 
-    args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
@@ -46,13 +45,9 @@ def train(args, train_dataset, model, tokenizer, pool):
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d",
-                args.per_gpu_train_batch_size)
-    logger.info("  Total train batch size (w. parallel, distributed & accumulation) = %d",
-                args.train_batch_size * args.gradient_accumulation_steps * (
-                    torch.distributed.get_world_size() if args.local_rank != -1 else 1))
-    logger.info("  Gradient Accumulation steps = %d",
-                args.gradient_accumulation_steps)
+    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
+    logger.info("  Total train batch size  = %d", args.train_batch_size)
+    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", args.max_steps)
 
     global_step = args.start_step
@@ -106,7 +101,7 @@ def train(args, train_dataset, model, tokenizer, pool):
 
                     if args.evaluate_during_training:
                         results = evaluate(
-                            args, model, tokenizer, pool=pool, eval_when_training=True)
+                            args, model, tokenizer, eval_when_training=True)
 
                     if results['eval_acc'] > best_acc:
                         best_acc = results['eval_acc']
@@ -127,16 +122,16 @@ def train(args, train_dataset, model, tokenizer, pool):
                             "Saving model checkpoint to %s", output_dir)
 
 
-def evaluate(args, model, tokenizer, prefix="", pool=None, eval_when_training=False):
-    # Loop to handle MNLI double evaluation (matched, mis-matched)
+def evaluate(args, model, tokenizer, eval_when_training=False):
+    
     eval_output_dir = args.output_dir
     eval_dataset = load_and_cache_examples(
-        args, tokenizer, evaluate=True, pool=pool)
-    if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
+        args, tokenizer, evaluate=True)
+    if not os.path.exists(eval_output_dir):
         os.makedirs(eval_output_dir)
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # Note that DistributedSampler samples randomly
+
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
                                  batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
@@ -144,7 +139,7 @@ def evaluate(args, model, tokenizer, prefix="", pool=None, eval_when_training=Fa
     if args.n_gpu > 1 and eval_when_training is False:
         model = torch.nn.DataParallel(model)
 
-    logger.info("***** Running evaluation {} *****".format(prefix))
+    logger.info("***** Running evaluation *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     eval_loss = 0.0
@@ -186,7 +181,7 @@ def evaluate(args, model, tokenizer, prefix="", pool=None, eval_when_training=Fa
         "eval_threshold": best_threshold,
     }
 
-    logger.info("***** Eval results {} *****".format(prefix))
+    logger.info("***** Eval results *****")
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key], 4)))
 
@@ -238,19 +233,19 @@ def main():
 
     args = parser.parse_args()
 
-    if args.no_cuda:
-        device = torch.device(
-            "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-        args.n_gpu = torch.cuda.device_count()
 
-    args.device = device
+    args.device = torch.device(
+        "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    args.n_gpu = torch.cuda.device_count()
+
+
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
 
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
                         level=logging.WARN)
-    logger.warning("Device: %s, n_gpu: %s", device, args.n_gpu)
+    logger.warning("Device: %s, n_gpu: %s", args.device, args.n_gpu)
 
     set_seed(args.seed)
 

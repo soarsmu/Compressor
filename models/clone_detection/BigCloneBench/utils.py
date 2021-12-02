@@ -2,6 +2,7 @@ import os
 import json
 import torch
 import random
+import pickle
 import logging
 import numpy as np
 import multiprocessing
@@ -18,33 +19,54 @@ class TextDataset(Dataset):
         index_filename = file_path
         logger.info("Creating features from file at %s ", index_filename)
         url_to_code = {}
+        
+        folder = '/'.join(file_path.split('/')[:-1])
 
-        with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
-            for line in f:
-                line = line.strip()
-                js = json.loads(line)
-                url_to_code[js['idx']] = js['func']
+        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
+        # code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(postfix))
+        
+        try:
+            self.examples = torch.load(cache_file_path)
+            # with open(code_pairs_file_path, 'rb') as f:
+            #     code_pairs = pickle.load(f)
+            logger.info("Loading features from cached file %s", cache_file_path)
+        except:
+            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+                for line in f:
+                    line = line.strip()
+                    js = json.loads(line)
+                    url_to_code[js['idx']] = js['func']
 
-        data = []
-        with open(index_filename) as f:
-            for line in f:
-                line = line.strip()
-                url1, url2, label = line.split('\t')
-                if url1 not in url_to_code or url2 not in url_to_code:
-                    continue
-                if label == '0':
-                    label = 0
-                else:
-                    label = 1
-                data.append((url1, url2, label, tokenizer,
-                            args, url_to_code))
+            data = []
+            with open(index_filename) as f:
+                for line in f:
+                    line = line.strip()
+                    url1, url2, label = line.split('\t')
+                    if url1 not in url_to_code or url2 not in url_to_code:
+                        continue
+                    if label == '0':
+                        label = 0
+                    else:
+                        label = 1
+                    data.append((url1, url2, label, tokenizer,
+                                args, url_to_code))
 
-        if "test" not in postfix:
-            data = random.sample(data, int(len(data)*0.1))
-
-        pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        self.examples = pool.map(get_example, tqdm(data, total=len(data)))
-
+            if "test" not in postfix:
+                data = random.sample(data, int(len(data)*0.1))
+                
+            # code_pairs = []
+            # for sing_example in data:
+            #     code_pairs.append([sing_example[0], 
+            #                         sing_example[1], 
+            #                         url_to_code[sing_example[0]], 
+            #                         url_to_code[sing_example[1]]])
+            # with open(code_pairs_file_path, 'wb') as f:
+            #     pickle.dump(code_pairs, f)
+            
+            pool = multiprocessing.Pool(multiprocessing.cpu_count())
+            self.examples = pool.map(get_example, tqdm(data, total=len(data)))
+            torch.save(self.examples, cache_file_path)
+            
         if 'train' in postfix:
             for idx, example in enumerate(self.examples[:2]):
                 logger.info("*** Example ***")
@@ -63,8 +85,7 @@ class TextDataset(Dataset):
 
 
 def load_and_cache_examples(args, tokenizer, evaluate=False, test=False):
-    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (
-        args.eval_data_file if evaluate else args.train_data_file), block_size=args.block_size)
+    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file))
     return dataset
 
 
