@@ -2,7 +2,6 @@ import os
 import json
 import torch
 import random
-import pickle
 import logging
 import numpy as np
 import multiprocessing
@@ -23,12 +22,9 @@ class TextDataset(Dataset):
         folder = '/'.join(file_path.split('/')[:-1])
 
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
-        # code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(postfix))
         
         try:
             self.examples = torch.load(cache_file_path)
-            # with open(code_pairs_file_path, 'rb') as f:
-            #     code_pairs = pickle.load(f)
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
             with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
@@ -53,15 +49,6 @@ class TextDataset(Dataset):
 
             if "test" not in postfix:
                 data = random.sample(data, int(len(data)*0.1))
-                
-            # code_pairs = []
-            # for sing_example in data:
-            #     code_pairs.append([sing_example[0], 
-            #                         sing_example[1], 
-            #                         url_to_code[sing_example[0]], 
-            #                         url_to_code[sing_example[1]]])
-            # with open(code_pairs_file_path, 'wb') as f:
-            #     pickle.dump(code_pairs, f)
             
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(get_example, tqdm(data, total=len(data)))

@@ -4,8 +4,8 @@ CUDA_VISIBLE_DEVICES=1,2 python main.py \
     --eval_data_file=../../../data/clone_detection/BigCloneBench/valid.txt \
     --epoch 2 \
     --block_size 400 \
-    --train_batch_size 8 \
-    --eval_batch_size 32 \
+    --train_batch_size 6 \
+    --eval_batch_size 16 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
