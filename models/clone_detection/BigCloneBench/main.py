@@ -196,12 +196,10 @@ def main():
 
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
-    parser.add_argument("--output_dir", default=None, type=str, required=True,
+    parser.add_argument("--output_dir", default="./", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
-    parser.add_argument("--model_name_or_path", default=None, type=str,
-                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
@@ -258,18 +256,18 @@ def main():
 
     args.start_epoch = 0
     args.start_step = 0
-
+    args.model_name = "microsoft/codebert-base"
     config_class, model_class, tokenizer_class = RobertaConfig, RobertaModel, RobertaTokenizer
-    config = config_class.from_pretrained(args.model_name_or_path)
+    config = config_class.from_pretrained(args.model_name)
     config.num_labels = 2
 
-    tokenizer = tokenizer_class.from_pretrained(args.model_name_or_path)
+    tokenizer = tokenizer_class.from_pretrained(args.model_name)
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
-    if args.model_name_or_path:
+    if args.model_name:
         model = model_class.from_pretrained(
-            args.model_name_or_path, config=config)
+            args.model_name, config=config)
     else:
         model = model_class(config)
 
@@ -284,9 +282,9 @@ def main():
         train(args, train_dataset, model, tokenizer)
 
     if args.do_eval:
-        checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+        checkpoint_prefix = "checkpoint-best-acc/model.bin"
         output_dir = os.path.join(
-            args.output_dir, '{}'.format(checkpoint_prefix))
+            args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         evaluate(args, model, tokenizer)
