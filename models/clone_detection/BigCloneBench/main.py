@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
 
 logger = logging.getLogger(__name__)
+logging.disable(logging.WARNING)
 
 
 def train(args, train_dataset, model, tokenizer):
@@ -103,23 +104,20 @@ def train(args, train_dataset, model, tokenizer):
                         results = evaluate(
                             args, model, tokenizer, eval_when_training=True)
 
-                    if results['eval_acc'] > best_acc:
-                        best_acc = results['eval_acc']
+                    if results["eval_acc"] > best_acc:
+                        best_acc = results["eval_acc"]
                         logger.info("  "+"*"*20)
                         logger.info("  Best acc:%s", round(best_acc, 4))
                         logger.info("  "+"*"*20)
 
                         checkpoint_prefix = 'checkpoint-best-acc'
-                        output_dir = os.path.join(
-                            args.output_dir, '{}'.format(checkpoint_prefix))
+                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
-                        output_dir = os.path.join(
-                            output_dir, '{}'.format('model.bin'))
-                        torch.save(model.state_dict(), output_dir)
-                        logger.info(
-                            "Saving model checkpoint to %s", output_dir)
+                        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+                        torch.save(model.module.state_dict(), output_dir)
+                        logger.info("Saving model checkpoint to %s", output_dir)
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
@@ -142,48 +140,37 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     logger.info("***** Running evaluation *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
-    eval_loss = 0.0
-    nb_eval_steps = 0
+
     model.eval()
     logits = []
     y_trues = []
-    for batch in eval_dataloader:
+    
+    bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+    for batch in bar:
         inputs = batch[0].to(args.device)
         labels = batch[1].to(args.device)
         with torch.no_grad():
-            lm_loss, logit = model(inputs, labels)
-            eval_loss += lm_loss.mean().item()
+            _, logit = model(inputs, labels)
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
-        nb_eval_steps += 1
     logits = np.concatenate(logits, 0)
     y_trues = np.concatenate(y_trues, 0)
-    best_threshold = 0
-    best_acc = 0
-    for i in range(1, 100):
-        threshold = i/100
-        y_preds = logits[:, 1] > threshold
-        recall = recall_score(y_trues, y_preds)
-        precision = precision_score(y_trues, y_preds)
-        f1 = f1_score(y_trues, y_preds)
-        if f1 > best_acc:
-            best_acc = f1
-            best_threshold = threshold
 
-    y_preds = logits[:, 1] > best_threshold
+    y_preds = logits[:, 1] > 0.5
     recall = recall_score(y_trues, y_preds)
     precision = precision_score(y_trues, y_preds)
     f1 = f1_score(y_trues, y_preds)
     result = {
         "eval_recall": float(recall),
         "eval_acc": float(precision),
-        "eval_f1": float(f1),
-        "eval_threshold": best_threshold,
+        "eval_f1": float(f1)
     }
 
     logger.info("***** Eval results *****")
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key], 4)))
+        
+    return result
 
 
 def main():
@@ -244,8 +231,8 @@ def main():
 
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.WARN)
-    logger.warning("Device: %s, n_gpu: %s", args.device, args.n_gpu)
+                        level=logging.INFO)
+    logger.info("Device: %s, n_gpu: %s", args.device, args.n_gpu)
 
     set_seed(args.seed)
 
@@ -260,13 +247,8 @@ def main():
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
-    if args.model_name:
-        model = model_class.from_pretrained(
-            args.model_name, config=config)
-    else:
-        model = model_class(config)
 
-    model = Model(model, config, tokenizer, args)
+    model = Model(model_class.from_pretrained(args.model_name, config=config), config, tokenizer, args)
 
     logger.info("Training/evaluation parameters %s", args)
 
