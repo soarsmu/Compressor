@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def train(args, model, tokenizer):
-    
+
     train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
@@ -94,8 +94,8 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                avg_loss = round(
-                    np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     logging_loss = tr_loss
                     tr_nb = global_step
@@ -103,17 +103,16 @@ def train(args, model, tokenizer):
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
 
                     if args.evaluate_during_training:
-                        results = evaluate(
-                            args, model, tokenizer, eval_when_training=True)
-                        
+                        results = evaluate(args, model, tokenizer, eval_when_training=True)
+
                     logger.info("  "+"*"*20)
                     logger.info("  Current F1:%s", round(results["eval_f1"], 4))
                     logger.info("  Best F1:%s", round(best_f1, 4))
                     logger.info("  "+"*"*20)
-                    
+
                     if results["eval_f1"] >= best_f1:
                         best_f1 = results["eval_f1"]
-                        
+
                         checkpoint_prefix = 'checkpoint'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
@@ -124,10 +123,10 @@ def train(args, model, tokenizer):
                         logger.info("Saving model checkpoint to %s \n", output_dir)
                     else:
                         logger.info("Model checkpoint are not saved \n")
-                        
+
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
-    
+
     eval_output_dir = args.output_dir
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     if not os.path.exists(eval_output_dir):
@@ -147,7 +146,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     model.eval()
     logits = []
     y_trues = []
-    
+
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
@@ -173,7 +172,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     logger.info("***** Eval results *****")
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key], 4)))
-        
+
     return result
 
 
@@ -224,11 +223,9 @@ def main():
 
     args = parser.parse_args()
 
-
     args.device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     args.n_gpu = torch.cuda.device_count()
-
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
@@ -245,15 +242,16 @@ def main():
     args.model_name = "microsoft/codebert-base"
     config_class, model_class, tokenizer_class = RobertaConfig, RobertaModel, RobertaTokenizer
     config = config_class.from_pretrained(args.model_name)
-    
+
     tokenizer = tokenizer_class.from_pretrained(args.model_name)
     tokenizer.do_lower_case = True
-    
+
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(model_class.from_pretrained(args.model_name, config=config), config, args)
+    model = Model(model_class.from_pretrained(
+        args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 

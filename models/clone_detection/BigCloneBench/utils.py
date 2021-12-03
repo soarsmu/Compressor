@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
 
+
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path='train'):
         postfix = file_path.split('/')[-1].split('.txt')[0]
@@ -18,11 +19,11 @@ class TextDataset(Dataset):
         index_filename = file_path
         logger.info("Creating features from file at %s ", index_filename)
         url_to_code = {}
-        
+
         folder = '/'.join(file_path.split('/')[:-1])
 
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
-        
+
         try:
             self.examples = torch.load(cache_file_path)
             logger.info("Loading features from cached file %s", cache_file_path)
@@ -49,11 +50,10 @@ class TextDataset(Dataset):
 
             if "test" not in postfix:
                 data = random.sample(data, int(len(data)*0.001))
-            
+
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(get_example, tqdm(data, total=len(data)))
             torch.save(self.examples, cache_file_path)
-
 
     def __len__(self):
         return len(self.examples)
@@ -63,7 +63,8 @@ class TextDataset(Dataset):
 
 
 def load_and_cache_examples(args, tokenizer, evaluate=False, test=False):
-    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file))
+    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (
+        args.eval_data_file if evaluate else args.train_data_file))
     return dataset
 
 
@@ -74,6 +75,7 @@ def set_seed(seed=42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
+
 
 class InputFeatures(object):
 
@@ -105,6 +107,7 @@ def convert_examples_to_features(code1_tokens, code2_tokens, label, tokenizer, a
     source_tokens = code1_tokens+code2_tokens
     source_ids = code1_ids+code2_ids
     return InputFeatures(source_tokens, source_ids, label)
+
 
 def get_example(item):
     url1, url2, label, tokenizer, args, url_to_code = item
