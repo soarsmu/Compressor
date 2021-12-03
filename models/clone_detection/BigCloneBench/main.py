@@ -60,8 +60,6 @@ def train(args, model, tokenizer):
 
     model.zero_grad()
 
-    set_seed(args.seed)
-
     for idx in range(args.start_epoch, int(args.num_train_epochs)):
         bar = tqdm(train_dataloader, total=len(train_dataloader))
         tr_num = 0
@@ -120,9 +118,9 @@ def train(args, model, tokenizer):
 
                         output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
                         torch.save(model.module.state_dict(), output_dir)
-                        logger.info("Saving model checkpoint to %s \n", output_dir)
+                        logger.info("Saving model checkpoint to %s", output_dir)
                     else:
-                        logger.info("Model checkpoint are not saved \n")
+                        logger.info("Model checkpoint are not saved")
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
