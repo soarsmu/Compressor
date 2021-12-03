@@ -2,6 +2,7 @@ import os
 import torch
 import logging
 import argparse
+import warnings
 import numpy as np
 
 from tqdm import tqdm
@@ -11,12 +12,13 @@ from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
 
+warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
-logging.disable(logging.WARNING)
 
 
-def train(args, train_dataset, model, tokenizer):
-
+def train(args, model, tokenizer):
+    
+    train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
@@ -54,7 +56,7 @@ def train(args, train_dataset, model, tokenizer):
     global_step = args.start_step
     tr_loss, logging_loss, avg_loss, tr_nb, tr_num, train_loss = 0.0, 0.0, 0.0, 0, 0, 0
 
-    best_acc = 0
+    best_f1 = 0
 
     model.zero_grad()
 
@@ -103,32 +105,33 @@ def train(args, train_dataset, model, tokenizer):
                     if args.evaluate_during_training:
                         results = evaluate(
                             args, model, tokenizer, eval_when_training=True)
-
-                    if results["eval_acc"] > best_acc:
-                        best_acc = results["eval_acc"]
-                        logger.info("  "+"*"*20)
-                        logger.info("  Best acc:%s", round(best_acc, 4))
-                        logger.info("  "+"*"*20)
-
-                        checkpoint_prefix = 'checkpoint-best-acc'
+                        
+                    logger.info("  "+"*"*20)
+                    logger.info("  Current F1:%s", round(results["eval_f1"], 4))
+                    logger.info("  Best F1:%s", round(best_f1, 4))
+                    logger.info("  "+"*"*20)
+                    
+                    if results["eval_f1"] >= best_f1:
+                        best_f1 = results["eval_f1"]
+                        
+                        checkpoint_prefix = 'checkpoint'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
                         output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
                         torch.save(model.module.state_dict(), output_dir)
-                        logger.info("Saving model checkpoint to %s", output_dir)
-
+                        logger.info("Saving model checkpoint to %s \n", output_dir)
+                    else:
+                        logger.info("Model checkpoint are not saved \n")
+                        
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
     
     eval_output_dir = args.output_dir
-    eval_dataset = load_and_cache_examples(
-        args, tokenizer, evaluate=True)
+    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     if not os.path.exists(eval_output_dir):
         os.makedirs(eval_output_dir)
-
-    args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
 
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
@@ -147,6 +150,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
+        bar.set_description("evaluation")
         inputs = batch[0].to(args.device)
         labels = batch[1].to(args.device)
         with torch.no_grad():
@@ -229,8 +233,8 @@ def main():
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
 
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+                        datefmt="%m/%d/%Y %H:%M:%S",
                         level=logging.INFO)
     logger.info("Device: %s, n_gpu: %s", args.device, args.n_gpu)
 
@@ -241,25 +245,24 @@ def main():
     args.model_name = "microsoft/codebert-base"
     config_class, model_class, tokenizer_class = RobertaConfig, RobertaModel, RobertaTokenizer
     config = config_class.from_pretrained(args.model_name)
-    config.num_labels = 2
-
+    
     tokenizer = tokenizer_class.from_pretrained(args.model_name)
+    tokenizer.do_lower_case = True
+    
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(model_class.from_pretrained(args.model_name, config=config), config, tokenizer, args)
+    model = Model(model_class.from_pretrained(args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 
     # Training
     if args.do_train:
-        train_dataset = load_and_cache_examples(
-            args, tokenizer, evaluate=False)
-        train(args, train_dataset, model, tokenizer)
+        train(args, model, tokenizer)
 
     if args.do_eval:
-        checkpoint_prefix = "checkpoint-best-acc/model.bin"
+        checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(
             args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))

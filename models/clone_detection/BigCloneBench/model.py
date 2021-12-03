@@ -25,11 +25,10 @@ class RobertaClassificationHead(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, encoder, config, tokenizer, args):
+    def __init__(self, encoder, config, args):
         super(Model, self).__init__()
         self.encoder = encoder
         self.config = config
-        self.tokenizer = tokenizer
         self.classifier = RobertaClassificationHead(config)
         self.args = args
 

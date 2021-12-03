@@ -48,21 +48,12 @@ class TextDataset(Dataset):
                                 args, url_to_code))
 
             if "test" not in postfix:
-                data = random.sample(data, int(len(data)*0.1))
+                data = random.sample(data, int(len(data)*0.001))
             
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(get_example, tqdm(data, total=len(data)))
             torch.save(self.examples, cache_file_path)
-            
-        if 'train' in postfix:
-            for idx, example in enumerate(self.examples[:2]):
-                logger.info("*** Example ***")
-                logger.info("idx: {}".format(idx))
-                logger.info("label: {}".format(example.label))
-                logger.info("input_tokens: {}".format(
-                    [x.replace("\u0120", "_") for x in example.input_tokens]))
-                logger.info("input_ids: {}".format(
-                    " ".join(map(str, example.input_ids))))
+
 
     def __len__(self):
         return len(self.examples)
