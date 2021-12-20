@@ -3,11 +3,9 @@ import torch.nn as nn
 
 
 class Model(nn.Module):
-    def __init__(self, encoder, config, tokenizer, args):
+    def __init__(self, encoder, args):
         super(Model, self).__init__()
         self.encoder = encoder
-        self.config = config
-        self.tokenizer = tokenizer
         self.args = args
 
     def forward(self, input_ids=None, p_input_ids=None, n_input_ids=None, labels=None):

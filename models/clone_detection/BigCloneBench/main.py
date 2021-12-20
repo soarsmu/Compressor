@@ -53,14 +53,12 @@ def train(args, model, tokenizer):
     logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", args.max_steps)
 
-    global_step = args.start_step
+    global_step = 0
     tr_loss, logging_loss, avg_loss, tr_nb, tr_num, train_loss = 0.0, 0.0, 0.0, 0, 0, 0
-
     best_f1 = 0
-
     model.zero_grad()
 
-    for idx in range(args.start_epoch, int(args.num_train_epochs)):
+    for idx in range(0, int(args.num_train_epochs)):
         bar = tqdm(train_dataloader, total=len(train_dataloader))
         tr_num = 0
         train_loss = 0
@@ -76,8 +74,7 @@ def train(args, model, tokenizer):
                 loss = loss / args.gradient_accumulation_steps
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), args.max_grad_norm)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
             tr_loss += loss.item()
             tr_num += 1
@@ -125,11 +122,7 @@ def train(args, model, tokenizer):
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
 
-    eval_output_dir = args.output_dir
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
-    if not os.path.exists(eval_output_dir):
-        os.makedirs(eval_output_dir)
-
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
                                  batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
@@ -235,21 +228,17 @@ def main():
 
     set_seed(args.seed)
 
-    args.start_epoch = 0
-    args.start_step = 0
     args.model_name = "microsoft/codebert-base"
-    config_class, model_class, tokenizer_class = RobertaConfig, RobertaModel, RobertaTokenizer
-    config = config_class.from_pretrained(args.model_name)
+    config = RobertaConfig.from_pretrained(args.model_name)
 
-    tokenizer = tokenizer_class.from_pretrained(args.model_name)
+    tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
     tokenizer.do_lower_case = True
 
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(model_class.from_pretrained(
-        args.model_name, config=config), config, args)
+    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 
