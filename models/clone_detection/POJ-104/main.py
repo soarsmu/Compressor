@@ -48,9 +48,11 @@ def train(args, model, tokenizer):
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
+    logger.info("  Instantaneous batch size per GPU = %d",
+                args.per_gpu_train_batch_size)
     logger.info("  Total train batch size  = %d", args.train_batch_size)
-    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
+    logger.info("  Gradient Accumulation steps = %d",
+                args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", args.max_steps)
 
     global_step = args.start_step
@@ -92,7 +94,8 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+                avg_loss = round(
+                    np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     logging_loss = tr_loss
@@ -101,10 +104,12 @@ def train(args, model, tokenizer):
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
 
                     if args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer, eval_when_training=True)
+                        results = evaluate(
+                            args, model, tokenizer, eval_when_training=True)
 
                     logger.info("  "+"*"*20)
-                    logger.info("  Current F1:%s", round(results["eval_f1"], 4))
+                    logger.info("  Current F1:%s", round(
+                        results["eval_f1"], 4))
                     logger.info("  Best F1:%s", round(best_f1, 4))
                     logger.info("  "+"*"*20)
 
@@ -112,13 +117,16 @@ def train(args, model, tokenizer):
                         best_f1 = results["eval_f1"]
 
                         checkpoint_prefix = 'checkpoint'
-                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
+                        output_dir = os.path.join(
+                            args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
-                        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+                        output_dir = os.path.join(
+                            output_dir, '{}'.format('model.bin'))
                         torch.save(model.module.state_dict(), output_dir)
-                        logger.info("Saving model checkpoint to %s", output_dir)
+                        logger.info(
+                            "Saving model checkpoint to %s", output_dir)
                     else:
                         logger.info("Model checkpoint are not saved")
 
