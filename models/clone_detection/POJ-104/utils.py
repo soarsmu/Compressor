@@ -88,7 +88,6 @@ class InputFeatures(object):
 
 
 def convert_examples_to_features(data, tokenizer, args):
-
     code = " ".join(data["code"].split())
     code_tokens = tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens = [tokenizer.cls_token] + code_tokens + [tokenizer.sep_token]

@@ -56,7 +56,7 @@ def train(args, model, tokenizer):
 
     global_step = 0
     tr_loss, logging_loss, avg_loss, tr_nb, tr_num, train_loss = 0.0, 0.0, 0.0, 0, 0, 0
-    best_map = 0
+    best_acc = 0
     model.zero_grad()
 
     for idx in range(0, int(args.num_train_epochs)):
@@ -64,12 +64,10 @@ def train(args, model, tokenizer):
         tr_num = 0
         train_loss = 0
         for step, batch in enumerate(bar):
-            inputs = batch[0].to(args.device)    
-            p_inputs = batch[1].to(args.device)
-            n_inputs = batch[2].to(args.device)
-            labels = batch[3].to(args.device)
+            inputs = batch[0].to(args.device)        
+            labels = batch[1].to(args.device) 
             model.train()
-            loss, _ = model(inputs, p_inputs, n_inputs, labels)
+            loss, _ = model(inputs, labels)
 
             if args.n_gpu > 1:
                 loss = loss.mean()
@@ -105,12 +103,12 @@ def train(args, model, tokenizer):
                         results = evaluate(args, model, tokenizer, eval_when_training=True)
 
                     logger.info("  "+"*"*20)
-                    logger.info("  Current MAP:%s", round(results["eval_map"], 4))
-                    logger.info("  Best MAP:%s", round(best_map, 4))
+                    logger.info("  Current ACC:%s", round(results["eval_acc"], 4))
+                    logger.info("  Best ACC:%s", round(best_acc, 4))
                     logger.info("  "+"*"*20)
 
-                    if results["eval_map"] >= best_map:
-                        best_map = results["eval_map"]
+                    if results["eval_acc"] >= best_acc:
+                        best_acc = results["eval_acc"]
 
                         checkpoint_prefix = 'checkpoint'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
@@ -140,43 +138,25 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     model.eval()
     logits = []
-    y_trues = []
+    labels = []
 
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
-        inputs = batch[0].to(args.device)
-        p_inputs = batch[1].to(args.device)
-        n_inputs = batch[2].to(args.device)
-        labels = batch[3].to(args.device)
+        inputs = batch[0].to(args.device)        
+        label = batch[1].to(args.device) 
         with torch.no_grad():
-            _, logit = model(inputs, p_inputs, n_inputs, labels)
+            _, logit = model(inputs, label)
             logits.append(logit.cpu().numpy())
-            y_trues.append(labels.cpu().numpy())
+            labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
-    y_trues = np.concatenate(y_trues, 0)
+    labels = np.concatenate(labels, 0)
 
-    scores = np.matmul(logits, logits.T)
-    dic = {}
-    for i in range(scores.shape[0]):
-        scores[i, i] = -1000000
-        if int(labels[i]) not in dic:
-            dic[int(labels[i])] = -1
-        dic[int(labels[i])] += 1
-    sort_ids = np.argsort(
-        scores, axis=-1, kind='quicksort', order=None)[:, ::-1]
-    MAP = []
-    for i in range(scores.shape[0]):
-        label = int(labels[i])
-        Avep = []
-        for j in range(dic[label]):
-            index = sort_ids[i, j]
-            if int(labels[index]) == label:
-                Avep.append((len(Avep)+1)/(j+1))
-        MAP.append(sum(Avep)/dic[label])
-
+    preds = logits[:,0] > 0.5
+    eval_acc = np.mean(labels==preds)
+   
     result = {
-        "eval_map": float(np.mean(MAP))
+        "eval_acc":round(eval_acc, 4)
     }
 
     logger.info("***** Eval results *****")
@@ -267,8 +247,7 @@ def main():
 
     if args.do_eval:
         checkpoint_prefix = "checkpoint/model.bin"
-        output_dir = os.path.join(
-            args.output_dir, "{}".format(checkpoint_prefix))
+        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         evaluate(args, model, tokenizer)
