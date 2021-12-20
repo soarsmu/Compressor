@@ -91,7 +91,8 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+                avg_loss = round(
+                    np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     logging_loss = tr_loss
@@ -143,7 +144,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
-        inputs = batch[0].to(args.device)    
+        inputs = batch[0].to(args.device)
         p_inputs = batch[1].to(args.device)
         n_inputs = batch[2].to(args.device)
         labels = batch[3].to(args.device)
@@ -154,27 +155,27 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     logits = np.concatenate(logits, 0)
     y_trues = np.concatenate(y_trues, 0)
 
-    scores=np.matmul(logits, logits.T)
-    dic={}
+    scores = np.matmul(logits, logits.T)
+    dic = {}
     for i in range(scores.shape[0]):
-        scores[i, i]=-1000000
+        scores[i, i] = -1000000
         if int(labels[i]) not in dic:
             dic[int(labels[i])] = -1
         dic[int(labels[i])] += 1
-    sort_ids=np.argsort(scores, axis=-1, kind='quicksort', order=None)[:,::-1]
-    MAP=[]
+    sort_ids = np.argsort(
+        scores, axis=-1, kind='quicksort', order=None)[:, ::-1]
+    MAP = []
     for i in range(scores.shape[0]):
-        cont=0
-        label=int(labels[i])
+        label = int(labels[i])
         Avep = []
         for j in range(dic[label]):
-            index=sort_ids[i,j]
-            if int(labels[index])==label:
+            index = sort_ids[i, j]
+            if int(labels[index]) == label:
                 Avep.append((len(Avep)+1)/(j+1))
         MAP.append(sum(Avep)/dic[label])
-          
+
     result = {
-        "eval_map":float(np.mean(MAP))
+        "eval_map": float(np.mean(MAP))
     }
 
     logger.info("***** Eval results *****")
