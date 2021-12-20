@@ -23,8 +23,7 @@ class TextDataset(Dataset):
 
         try:
             self.examples = torch.load(cache_file_path)
-            logger.info("Loading features from cached file %s",
-                        cache_file_path)
+            logger.info("Loading features from cached file %s", cache_file_path)
         except:
             with open(file_path) as f:
                 for line in f:
