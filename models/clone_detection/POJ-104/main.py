@@ -140,7 +140,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     model.eval()
     logits = []
-    y_trues = []
+    labels = []
 
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
@@ -148,13 +148,13 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         inputs = batch[0].to(args.device)
         p_inputs = batch[1].to(args.device)
         n_inputs = batch[2].to(args.device)
-        labels = batch[3].to(args.device)
+        label = batch[3].to(args.device)
         with torch.no_grad():
-            _, logit = model(inputs, p_inputs, n_inputs, labels)
+            _, logit = model(inputs, p_inputs, n_inputs, label)
             logits.append(logit.cpu().numpy())
-            y_trues.append(labels.cpu().numpy())
+            labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
-    y_trues = np.concatenate(y_trues, 0)
+    labels = np.concatenate(labels, 0)
 
     scores = np.matmul(logits, logits.T)
     dic = {}

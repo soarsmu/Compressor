@@ -136,24 +136,24 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     model.eval()
     logits = []
-    y_trues = []
+    labels = []
 
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
         inputs = batch[0].to(args.device)
-        labels = batch[1].to(args.device)
+        label = batch[1].to(args.device)
         with torch.no_grad():
-            _, logit = model(inputs, labels)
+            _, logit = model(inputs, label)
             logits.append(logit.cpu().numpy())
-            y_trues.append(labels.cpu().numpy())
+            labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
-    y_trues = np.concatenate(y_trues, 0)
+    labels = np.concatenate(labels, 0)
 
     y_preds = logits[:, 1] > 0.5
-    recall = recall_score(y_trues, y_preds)
-    precision = precision_score(y_trues, y_preds)
-    f1 = f1_score(y_trues, y_preds)
+    recall = recall_score(labels, y_preds)
+    precision = precision_score(labels, y_preds)
+    f1 = f1_score(labels, y_preds)
     result = {
         "eval_recall": float(recall),
         "eval_acc": float(precision),
