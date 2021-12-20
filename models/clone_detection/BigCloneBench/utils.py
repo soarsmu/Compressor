@@ -13,15 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 class TextDataset(Dataset):
-    def __init__(self, tokenizer, args, file_path='train'):
-        postfix = file_path.split('/')[-1].split('.txt')[0]
+    def __init__(self, tokenizer, args, file_path=None):
+        postfix = file_path.split('/')[-1].split('.')[0]
         self.examples = []
         index_filename = file_path
         logger.info("Creating features from file at %s ", index_filename)
         url_to_code = {}
 
         folder = '/'.join(file_path.split('/')[:-1])
-
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
 
         try:

@@ -4,7 +4,6 @@ import torch
 import random
 import logging
 import numpy as np
-import multiprocessing
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
@@ -13,60 +12,53 @@ logger = logging.getLogger(__name__)
 
 
 class TextDataset(Dataset):
-    def __init__(self, tokenizer, args, file_path='train'):
-        postfix = file_path.split('/')[-1].split('.txt')[0]
+    def __init__(self, tokenizer, args, file_path=None):
+        postfix = file_path.split('/')[-1].split('.')[0]
         self.examples = []
-        index_filename = file_path
-        logger.info("Creating features from file at %s ", index_filename)
-        url_to_code = {}
-
+        data=[]
+        logger.info("Creating features from file at %s ", file_path)
+        
         folder = '/'.join(file_path.split('/')[:-1])
-
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
-
+        
         try:
             self.examples = torch.load(cache_file_path)
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
-            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+            with open(file_path) as f:
                 for line in f:
-                    line = line.strip()
-                    js = json.loads(line)
-                    url_to_code[js['idx']] = js['func']
-
-            data = []
-            with open(index_filename) as f:
-                for line in f:
-                    line = line.strip()
-                    url1, url2, label = line.split('\t')
-                    if url1 not in url_to_code or url2 not in url_to_code:
-                        continue
-                    if label == '0':
-                        label = 0
-                    else:
-                        label = 1
-                    data.append((url1, url2, label, tokenizer,
-                                args, url_to_code))
-
-            if "test" not in postfix:
-                data = random.sample(data, int(len(data)*0.1))
-
-            pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            self.examples = pool.map(get_example, tqdm(data, total=len(data)))
+                    line=line.strip()
+                    data.append(json.loads(line))
+                    
+            for d in tqdm(data):
+                self.examples.append(convert_examples_to_features(d,tokenizer,args))
+                
             torch.save(self.examples, cache_file_path)
-
+            
+        self.label_examples={}
+        for item in self.examples:
+            if item.label not in self.label_examples:
+                self.label_examples[item.label]=[]
+            self.label_examples[item.label].append(item)
+            
+        
     def __len__(self):
         return len(self.examples)
 
-    def __getitem__(self, item):
-        return torch.tensor(self.examples[item].input_ids), torch.tensor(self.examples[item].label)
-
-
-def load_and_cache_examples(args, tokenizer, evaluate=False, test=False):
-    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (
-        args.eval_data_file if evaluate else args.train_data_file))
-    return dataset
-
+    def __getitem__(self, i):   
+        label=self.examples[i].label
+        index=self.examples[i].index
+        labels=list(self.label_examples)
+        labels.remove(label)
+        while True:
+            shuffle_example=random.sample(self.label_examples[label],1)[0]
+            if shuffle_example.index!=index:
+                p_example=shuffle_example
+                break
+        n_example=random.sample(self.label_examples[random.sample(labels,1)[0]],1)[0]
+        
+        return (torch.tensor(self.examples[i].input_ids),torch.tensor(p_example.input_ids),
+                torch.tensor(n_example.input_ids),torch.tensor(label))
 
 def set_seed(seed=42):
     random.seed(seed)
