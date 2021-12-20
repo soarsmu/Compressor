@@ -1,8 +1,8 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT License.
 import os
 import json
 from tqdm import tqdm
+
+
 def files(path):
     g = os.walk(path) 
     file=[]
