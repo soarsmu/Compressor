@@ -10,6 +10,7 @@ from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
 
+
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
         postfix = file_path.split('/')[-1].split('.')[0]
@@ -26,9 +27,10 @@ class TextDataset(Dataset):
             with open(file_path) as f:
                 for line in f:
                     data = json.loads(line.strip())
-                    self.examples.append(convert_examples_to_features(data, tokenizer, args))
+                    self.examples.append(
+                        convert_examples_to_features(data, tokenizer, args))
             torch.save(self.examples, cache_file_path)
-            
+
     def __len__(self):
         return len(self.examples)
 
@@ -57,11 +59,11 @@ class InputFeatures(object):
         self.label = label
 
 
-def convert_examples_to_features(data,tokenizer,args):
-    code=' '.join(data["func"].split())
-    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
-    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
-    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
+def convert_examples_to_features(data, tokenizer, args):
+    code = " ".join(data["func"].split())
+    code_tokens = tokenizer.tokenize(code)[:args.block_size-2]
+    source_tokens = [tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
+    source_ids = tokenizer.convert_tokens_to_ids(source_tokens)
     padding_length = args.block_size - len(source_ids)
-    source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids, data['target'])
+    source_ids += [tokenizer.pad_token_id]*padding_length
+    return InputFeatures(source_tokens, source_ids, data["target"])
