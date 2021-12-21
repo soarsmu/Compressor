@@ -2,7 +2,7 @@ mkdir logs
 
 CUDA_VISIBLE_DEVICES=1,2 python main.py \
     --do_train \
-    --train_data_file=../../../data/clone_detection/POJ-104/valid.jsonl \
+    --train_data_file=../../../data/clone_detection/POJ-104/train.jsonl \
     --eval_data_file=../../../data/clone_detection/POJ-104/valid.jsonl \
     --epoch 2 \
     --block_size 400 \
@@ -16,7 +16,7 @@ CUDA_VISIBLE_DEVICES=1,2 python main.py \
 CUDA_VISIBLE_DEVICES=1 python main.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/POJ-104/train.jsonl \
-    --eval_data_file=../../../data/clone_detection/POJ-104/valid.jsonl \
+    --eval_data_file=../../../data/clone_detection/POJ-104/test.jsonl \
     --block_size 400 \
     --eval_batch_size 32 \
     --seed 123456 2>&1| tee logs/eval.log

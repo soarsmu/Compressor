@@ -146,9 +146,9 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         inputs = batch[0].to(args.device)        
         label = batch[1].to(args.device) 
         with torch.no_grad():
-            _, logit = model(inputs, label)
+            logit = model(inputs)
             logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
+        labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
@@ -241,7 +241,6 @@ def main():
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Training
     if args.do_train:
         train(args, model, tokenizer)
 

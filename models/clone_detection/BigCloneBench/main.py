@@ -242,7 +242,6 @@ def main():
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Training
     if args.do_train:
         train(args, model, tokenizer)
 

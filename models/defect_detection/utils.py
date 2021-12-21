@@ -24,13 +24,15 @@ class TextDataset(Dataset):
             self.examples = torch.load(cache_file_path)
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
+            data = []
             with open(file_path) as f:
                 for line in f:
-                    data = json.loads(line.strip())
-                    self.examples.append(
-                        convert_examples_to_features(data, tokenizer, args))
+                    data.append(json.loads(line.strip()))
+                    
+            for d in tqdm(data):
+                self.examples.append(convert_examples_to_features(d, tokenizer, args))
             torch.save(self.examples, cache_file_path)
-
+        
     def __len__(self):
         return len(self.examples)
 
