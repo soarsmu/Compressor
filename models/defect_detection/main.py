@@ -9,7 +9,7 @@ from tqdm import tqdm
 from model import Model
 from utils import set_seed, TextDataset
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
-from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -152,7 +152,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
-    preds = logits[:,0] > 0.5
+    preds = logits[:, 0] > 0.5
     eval_acc = np.mean(labels==preds)
    
     result = {
@@ -229,6 +229,7 @@ def main():
 
     args.model_name = "microsoft/codebert-base"
     config = RobertaConfig.from_pretrained(args.model_name)
+    config.num_labels = 2
 
     tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
     tokenizer.do_lower_case = True
@@ -237,7 +238,7 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), args)
+    model = Model(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
 
     logger.info("Training/evaluation parameters %s", args)
 

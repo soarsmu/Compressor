@@ -1,6 +1,6 @@
 mkdir logs
 
-CUDA_VISIBLE_DEVICES=3,4 python main.py \
+CUDA_VISIBLE_DEVICES=0,1 python main.py \
     --do_train \
     --train_data_file=../../data/defect_detection/train.jsonl \
     --eval_data_file=../../data/defect_detection/valid.jsonl \
@@ -13,7 +13,7 @@ CUDA_VISIBLE_DEVICES=3,4 python main.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee logs/train.log
 
-CUDA_VISIBLE_DEVICES=3 python main.py \
+CUDA_VISIBLE_DEVICES=0 python main.py \
     --do_eval \
     --train_data_file=../../data/defect_detection/train.jsonl \
     --eval_data_file=../../data/defect_detection/test.jsonl \
