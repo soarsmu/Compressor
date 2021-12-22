@@ -1,0 +1,5 @@
+public java.util.List < TYPE_1 > METHOD_1 ( ) { return VAR_1 ; } 
+public TYPE_1 < TYPE_2 > METHOD_1 ( TYPE_3 VAR_1 , java.lang.String VAR_2 , java.util.HashMap < java.lang.String , java.lang.String > parameters ) { return METHOD_1 ( VAR_1 . toString ( ) , VAR_2 , parameters ) ; } 
+public static void main ( java.lang.String [ ] args ) throws java.lang.Exception { TYPE_1 VAR_1 = new TYPE_1 ( ) ; VAR_1 . METHOD_1 ( ) ; VAR_1 . METHOD_2 ( true ) ; VAR_1 . init ( STRING_1 ) ; } 
+public void METHOD_1 ( int VAR_1 , java.lang.String VAR_2 , long VAR_3 ) { if ( VAR_1 == 0 ) { VAR_4 . METHOD_2 ( java.lang.String . METHOD_3 ( VAR_3 ) ) ; } else { VAR_4 . error ( VAR_1 ) ; } } 
+public void METHOD_1 ( java.lang.Integer VAR_1 ) { this . VAR_3 . remove ( VAR_1 ) ; }
