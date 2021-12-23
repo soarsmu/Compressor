@@ -1,6 +1,3 @@
-# Copyright (c) Microsoft Corporation. 
-# Licensed under the MIT license.
-
 import torch
 import torch.nn as nn
 
@@ -21,27 +18,28 @@ class Seq2Seq(nn.Module):
         self.max_length=max_length
         self.sos_id=sos_id
         self.eos_id=eos_id
-        
+
     def _tie_or_clone_weights(self, first_module, second_module):
+        
         if self.config.torchscript:
             first_module.weight = nn.Parameter(second_module.weight.clone())
         else:
             first_module.weight = second_module.weight
-                  
+
     def tie_weights(self):
         self._tie_or_clone_weights(self.lm_head,
                                    self.encoder.embeddings.word_embeddings)        
-        
-    def forward(self, source_ids=None,source_mask=None,target_ids=None,target_mask=None,args=None):   
+
+    def forward(self, source_ids=None,source_mask=None,target_ids=None,target_mask=None):   
         outputs = self.encoder(source_ids, attention_mask=source_mask)
         encoder_output = outputs[0].permute([1,0,2]).contiguous()
-        if target_ids is not None:  
+        if target_ids is not None:
             attn_mask=-1e4 *(1-self.bias[:target_ids.shape[1],:target_ids.shape[1]])
             tgt_embeddings = self.encoder.embeddings(target_ids).permute([1,0,2]).contiguous()
             out = self.decoder(tgt_embeddings,encoder_output,tgt_mask=attn_mask,memory_key_padding_mask=(1-source_mask).bool())
             hidden_states = torch.tanh(self.dense(out)).permute([1,0,2]).contiguous()
             lm_logits = self.lm_head(hidden_states)
-
+            
             active_loss = target_mask[..., 1:].ne(0).view(-1) == 1
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = target_ids[..., 1:].contiguous()
@@ -53,6 +51,7 @@ class Seq2Seq(nn.Module):
             outputs = loss,loss*active_loss.sum(),active_loss.sum()
             return outputs
         else:
+
             preds=[]       
             zero=torch.cuda.LongTensor(1).fill_(0)     
             for i in range(source_ids.shape[0]):
@@ -104,7 +103,6 @@ class Beam(object):
         return self.prevKs[-1]
 
     def advance(self, wordLk):
-
         numWords = wordLk.size(1)
 
         if len(self.prevKs) > 0:
@@ -119,6 +117,7 @@ class Beam(object):
         bestScores, bestScoresId = flatBeamLk.topk(self.size, 0, True, True)
 
         self.scores = bestScores
+
         prevK = bestScoresId // numWords
         self.prevKs.append(prevK)
         self.nextYs.append((bestScoresId - prevK * numWords))
@@ -150,6 +149,7 @@ class Beam(object):
         return self.finished[:self.size]
 
     def getHyp(self, beam_res):
+    
         hyps=[]
         for _,timestep, k in beam_res:
             hyp = []

@@ -1,5 +1,3 @@
-mkdir logs
-
 CUDA_VISIBLE_DEVICES=1,2 python main.py \
     --do_train \
     --train_data_file=../../../data/clone_detection/BigCloneBench/train.txt \

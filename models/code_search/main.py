@@ -7,7 +7,8 @@ import numpy as np
 
 from tqdm import tqdm
 from model import Model
-from utils import set_seed, TextDataset
+from utils import set_seed, load_and_cache_examples
+from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def train(args, model, tokenizer):
 
-    train_dataset = TextDataset(tokenizer, args, args.train_data_file)
+    train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
@@ -38,7 +39,7 @@ def train(args, model, tokenizer):
 
     optimizer = AdamW(optimizer_grouped_parameters,
                       lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
                                                 num_training_steps=args.max_steps)
 
     if args.n_gpu > 1:
@@ -53,8 +54,8 @@ def train(args, model, tokenizer):
     logger.info("  Total optimization steps = %d", args.max_steps)
 
     global_step = 0
-    tr_loss, avg_loss, tr_num, train_loss = 0.0, 0.0, 0.0, 0
-    best_map = 0
+    tr_loss, logging_loss, avg_loss, tr_nb, tr_num, train_loss = 0.0, 0.0, 0.0, 0, 0, 0
+    best_f1 = 0
     model.zero_grad()
 
     for idx in range(0, int(args.num_train_epochs)):
@@ -62,12 +63,10 @@ def train(args, model, tokenizer):
         tr_num = 0
         train_loss = 0
         for step, batch in enumerate(bar):
-            inputs = batch[0].to(args.device)    
-            p_inputs = batch[1].to(args.device)
-            n_inputs = batch[2].to(args.device)
-            labels = batch[3].to(args.device)
+            inputs = batch[0].to(args.device)
+            labels = batch[1].to(args.device)
             model.train()
-            loss, _ = model(inputs, p_inputs, n_inputs, labels)
+            loss, _ = model(inputs, labels)
 
             if args.n_gpu > 1:
                 loss = loss.mean()
@@ -80,7 +79,8 @@ def train(args, model, tokenizer):
             tr_loss += loss.item()
             tr_num += 1
             train_loss += loss.item()
-            
+            if avg_loss == 0:
+                avg_loss = tr_loss
             avg_loss = round(train_loss/tr_num, 5)
             bar.set_description("epoch {} loss {}".format(idx, avg_loss))
 
@@ -89,6 +89,11 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
+                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+
+                if args.logging_steps > 0 and global_step % args.logging_steps == 0:
+                    logging_loss = tr_loss
+                    tr_nb = global_step
 
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
 
@@ -96,12 +101,12 @@ def train(args, model, tokenizer):
                         results = evaluate(args, model, tokenizer, eval_when_training=True)
 
                     logger.info("  "+"*"*20)
-                    logger.info("  Current MAP:%s", round(results["eval_map"], 4))
-                    logger.info("  Best MAP:%s", round(best_map, 4))
+                    logger.info("  Current F1:%s", round(results["eval_f1"], 4))
+                    logger.info("  Best F1:%s", round(best_f1, 4))
                     logger.info("  "+"*"*20)
 
-                    if results["eval_map"] >= best_map:
-                        best_map = results["eval_map"]
+                    if results["eval_f1"] >= best_f1:
+                        best_f1 = results["eval_f1"]
 
                         checkpoint_prefix = 'checkpoint'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
@@ -117,7 +122,7 @@ def train(args, model, tokenizer):
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
 
-    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
+    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
                                  batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
@@ -137,37 +142,22 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     for batch in bar:
         bar.set_description("evaluation")
         inputs = batch[0].to(args.device)
-        p_inputs = batch[1].to(args.device)
-        n_inputs = batch[2].to(args.device)
-        label = batch[3].to(args.device)
+        label = batch[1].to(args.device)
         with torch.no_grad():
-            _, logit = model(inputs, p_inputs, n_inputs, label)
+            _, logit = model(inputs, label)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
-    scores = np.matmul(logits, logits.T)
-    dic = {}
-    for i in range(scores.shape[0]):
-        scores[i, i] = -1000000
-        if int(labels[i]) not in dic:
-            dic[int(labels[i])] = -1
-        dic[int(labels[i])] += 1
-    sort_ids = np.argsort(
-        scores, axis=-1, kind='quicksort', order=None)[:, ::-1]
-    MAP = []
-    for i in range(scores.shape[0]):
-        label = int(labels[i])
-        Avep = []
-        for j in range(dic[label]):
-            index = sort_ids[i, j]
-            if int(labels[index]) == label:
-                Avep.append((len(Avep)+1)/(j+1))
-        MAP.append(sum(Avep)/dic[label])
-
+    y_preds = logits[:, 1] > 0.5
+    recall = recall_score(labels, y_preds)
+    precision = precision_score(labels, y_preds)
+    f1 = f1_score(labels, y_preds)
     result = {
-        "eval_map": float(np.mean(MAP))
+        "eval_recall": float(recall),
+        "eval_acc": float(precision),
+        "eval_f1": float(f1)
     }
 
     logger.info("***** Eval results *****")
@@ -248,7 +238,7 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), args)
+    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 

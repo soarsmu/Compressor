@@ -129,3 +129,10 @@ dmypy.json
 .pyre/
 
 *.bin
+
+data/clone_detection
+data/code_repair
+data/code_search
+data/code_summarization
+data/code_translation
+data/defect_detection
