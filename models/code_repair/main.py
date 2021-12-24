@@ -224,13 +224,15 @@ def evaluate(args, model, tokenizer):
                 p.append(text)
 
     accs = []
+    refs = []
     golds = []
 
     for ref, gold in zip(p, eval_examples):
         accs.append(ref == gold.target)
-        golds.append(gold.target)
-
-    dev_bleu = compute_bleu(p, golds, max_order=4, smooth=True)
+        refs.append(ref.strip().split())
+        golds.append(gold.target.strip().split())
+    
+    dev_bleu = compute_bleu(refs, golds, max_order=4, smooth=True)
     result = {
         "eval_bleu": dev_bleu,
         "eval_acc": np.mean(accs)

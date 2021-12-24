@@ -33,6 +33,8 @@ def read_examples(filename):
                 )
             )
             idx += 1
+            if idx > 500:
+                break
     return examples
 
 

@@ -224,6 +224,7 @@ def evaluate(args, model, tokenizer):
                 p.append(text)
 
     accs = []
+    refs = []
     golds = []
 
     for ref, gold in zip(p, eval_examples):
@@ -233,12 +234,12 @@ def evaluate(args, model, tokenizer):
     dev_bleu = compute_bleu(p, golds, max_order=4, smooth=True)
     result = {
         "eval_bleu": dev_bleu,
-        "eval_acc": np.mean(accs)*100
+        "eval_acc": np.mean(accs)
     }
 
     logger.info("***** Eval results *****")
-    for key in sorted(result.keys()):
-        logger.info("  %s = %s", key, str(round(result[key], 2)))
+    for key in result.keys():
+        logger.info("  %s = %s", key, str(round(result[key], 4)))
 
     return result
 

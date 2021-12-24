@@ -14,7 +14,7 @@ mkdir -p logs/small
 #     --evaluate_during_training \
 #     --seed 123456 2>&1| tee logs/small/train.log
 
-CUDA_VISIBLE_DEVICES=0,1 python main.py \
+CUDA_VISIBLE_DEVICES=7 python main.py \
     --do_eval \
     --eval_data_file=../../data/code_repair/small/test.buggy-fixed.buggy,../../data/code_repair/small/test.buggy-fixed.fixed \
     --output_dir ./small \
