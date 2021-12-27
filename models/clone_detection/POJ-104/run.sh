@@ -1,6 +1,6 @@
 mkdir logs
 
-CUDA_VISIBLE_DEVICES=1,2 python main.py \
+CUDA_VISIBLE_DEVICES=6,0 python main.py \
     --do_train \
     --train_data_file=../../../data/clone_detection/POJ-104/train.jsonl \
     --eval_data_file=../../../data/clone_detection/POJ-104/valid.jsonl \
@@ -13,7 +13,7 @@ CUDA_VISIBLE_DEVICES=1,2 python main.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee logs/train.log
 
-CUDA_VISIBLE_DEVICES=1 python main.py \
+CUDA_VISIBLE_DEVICES=6 python main.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/POJ-104/train.jsonl \
     --eval_data_file=../../../data/clone_detection/POJ-104/test.jsonl \

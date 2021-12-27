@@ -136,3 +136,7 @@ data/code_search
 data/code_summarization
 data/code_translation
 data/defect_detection
+
+*.gold
+*.output
+*.jsonl
