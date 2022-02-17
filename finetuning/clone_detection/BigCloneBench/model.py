@@ -44,3 +44,28 @@ class Model(nn.Module):
             return loss, prob
         else:
             return prob
+
+
+class biLSTM(nn.Module):
+    def __init__(self):
+        super(biLSTM, self).__init__()
+        self.Embedding = nn.Embedding(50265, 200)
+        self.lstm = nn.LSTM(input_size=200, hidden_size=512,
+                            num_layers=1, batch_first=True, dropout=0, bidirectional=True)
+        # self.linear = nn.Linear(in_features=256, out_features=2)
+        self.fc1 = nn.Linear(512*8, 256)
+        self.fc2 = nn.Linear(256, 2)
+
+    def forward(self, x, hidden=None):
+        x = x.view(-1, 200)
+        x = self.Embedding(x)
+        lstm_out, hidden = self.lstm(x, hidden)     # LSTM 的返回很多
+        lstm_out = lstm_out[:, 0, :]
+        lstm_out = lstm_out.reshape(-1, lstm_out.size(-1)*4)
+        # print(lstm_out.size())
+        out = self.fc1(lstm_out)
+        activated_t = F.relu(out)
+        linear_out = self.fc2(activated_t)
+        # linear_out = torch.max(linear_out, dim=1)[0]
+
+        return linear_out
