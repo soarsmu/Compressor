@@ -17,7 +17,6 @@ from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from torch.profiler import profile, record_function, ProfilerActivity
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer, BertTokenizer
 
-tracker = MemTracker()
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
@@ -27,12 +26,10 @@ def get_time_dif(start_time):
     time_dif = end_time - start_time
     return timedelta(seconds=int(round(time_dif)))
 
-# 损失函数
 def get_loss(t_logits, s_logits, label, a, T):
     loss1 = torch.nn.CrossEntropyLoss()
     loss2 = torch.nn.MSELoss()
     loss = a * loss1(s_logits, label) + T * loss2(t_logits, s_logits)
-    # print(loss1(s_logits, label),loss2(t_logits, s_logits))
     return loss
 
 
@@ -381,9 +378,6 @@ def main():
     model.load_state_dict(torch.load(output_dir))
     model.to(args.device)
 
-    print(model)
-    exit()
-
     student_model = biLSTM()
     
     
@@ -395,35 +389,7 @@ def main():
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=32, num_workers=8, pin_memory=True)
 
-    # student_model.load_state_dict(torch.load("./model.bin"))
     student_model.to(args.device)
-    # torch.cuda.empty_cache()
-    # check_memory()
-    # for step, batch in enumerate(eval_dataloader):
-    #     texts = batch[0].to(args.device)
-    # with profile(activities=[ProfilerActivity.CUDA],
-    #     profile_memory=True, record_shapes=True) as prof:
-    # # with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True) as prof:
-    #     with torch.no_grad():
-    #         student_model(texts)
-            
-    # print(prof.key_averages().table())
-
-    # print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
-    
-    # student_train(model, student_model, args, train_dataloader, eval_dataloader)
-    # logger.info("Training/evaluation parameters %s", args)
-
-    # if args.do_train:
-    #     train(args, model, tokenizer)
-
-    # if args.do_eval:
-    #     checkpoint_prefix = "checkpoint/model.bin"
-    #     output_dir = os.path.join(
-    #         args.output_dir, "{}".format(checkpoint_prefix))
-    #     model.load_state_dict(torch.load(output_dir))
-    #     model.to(args.device)
-    #     evaluate(args, model, tokenizer)
     
     student_train(model, student_model, args, train_dataloader, eval_dataloader)
 
