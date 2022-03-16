@@ -1,6 +1,4 @@
 import os
-import sys
-import time
 import torch
 import logging
 import argparse
@@ -8,14 +6,8 @@ import warnings
 import numpy as np
 
 from tqdm import tqdm
-from sklearn import metrics
-
-from datetime import timedelta
-
-sys.path.append("..") 
-
-from model import Model
-from std_model import biLSTM, biGRU, TextCNN, DistilledLoss, TransformerModel
+import torch.nn.functional as F
+from model import biLSTM, biGRU, Roberta, loss_func
 from utils import set_seed, DistilledDataset
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
@@ -23,26 +15,21 @@ from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
-def get_time_dif(start_time):
-    end_time = time.time()
-    time_dif = end_time - start_time
-    return timedelta(seconds=int(round(time_dif)))
 
 def teacher_predict(model, args, loader):
     model.eval()
-    checkpoint_prefix = "../checkpoint/model.bin"
-    output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
-    model.load_state_dict(torch.load(output_dir))
+    model.load_state_dict(torch.load("../checkpoint/model.bin"))
     model.to(args.device)
-    t_logits = []
+    logits = []
     with torch.no_grad():
         bar = tqdm(loader, total=len(loader))
         for batch in bar:
             inputs = batch[2].to(args.device)
             with torch.no_grad():
                 logit = model(inputs)
-                t_logits.append(logit)
-    return t_logits
+                logits.append(logit)
+
+    return logits
 
 def student_train(T_model, S_model, args, train_loader, test_loader):
     try:
@@ -56,7 +43,7 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
-    distill_loss = DistilledLoss()
+
     num_steps = len(train_loader) * args.epochs
     
     no_decay = ['bias', 'LayerNorm.weight']
@@ -66,26 +53,32 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
         ) if not any(nd in n for nd in no_decay)]}
     ]
 
-    optimizer = AdamW(optimizer_grouped_parameters,
-                      lr=0.001, eps=1e-8)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_steps*0.1,
                                                 num_training_steps=num_steps)
-
     dev_best_acc = 0
-    S_model.train()
+
     for epoch in range(args.epochs):
+        S_model.train()
+        tr_num = 0
+        train_loss = 0
+
         logger.info('Epoch [{}/{}]'.format(epoch + 1, args.epochs))
         bar = tqdm(train_loader, total=len(train_loader))
         for step, batch in enumerate(bar):
             texts = batch[0].to(args.device)    
             label = batch[1].to(args.device)
+
             s_logits = S_model(texts)
 
-            loss = distill_loss(s_logits, t_train_logits[step], label)
+            loss = loss_func(s_logits, t_train_logits[step], label)
             loss.backward()
+            train_loss += loss.item()
+            tr_num += 1
+
+            scheduler.step()
             optimizer.step()
             optimizer.zero_grad()
-            scheduler.step()
 
         dev_acc = student_evaluate(args, S_model, test_loader)
         if dev_acc >= dev_best_acc:
@@ -96,8 +89,7 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
             os.makedirs("./recent/" + args.std_model, exist_ok=True)
             torch.save(S_model.state_dict(), os.path.join("./recent/", args.std_model, "model.bin"))
         
-        logger.info("Train Loss: {0}, Val Acc: {1}".format(loss.item(), dev_acc))
-        S_model.train()
+        logger.info("Train Loss: {0}, Val Acc: {1}".format(train_loss/tr_num, dev_acc))
 
 
 def student_evaluate(args, S_model, test_loader):
@@ -110,9 +102,10 @@ def student_evaluate(args, S_model, test_loader):
         for batch in bar:
             texts = batch[0].to(args.device)        
             label = batch[1].to(args.device)
-            s_logits = S_model(texts)
+            logits = S_model(texts)
+            prob = F.softmax(logits)
 
-            predict_all.append(s_logits.cpu().numpy())
+            predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
 
     predict_all = np.concatenate(predict_all, 0)
@@ -152,18 +145,12 @@ def main():
     parser.add_argument("--eval_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
 
-    parser.add_argument("--learning_rate", default=5e-5, type=float,
+    parser.add_argument("--learning_rate", default=2e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", default=1.0, type=float,
+    parser.add_argument("--max_grad_norm", default=0.5, type=float,
                         help="Max gradient norm.")
-    parser.add_argument("--warmup_steps", default=0, type=int,
-                        help="Linear warmup over warmup_steps.")
-    parser.add_argument('--logging_steps', type=int, default=50,
-                        help="Log every X updates steps.")
-    parser.add_argument('--save_steps', type=int, default=50,
-                        help="Save checkpoint every X updates steps.")
     parser.add_argument("--no_cuda", action='store_true',
                         help="Avoid using CUDA when available")
     parser.add_argument('--seed', type=int, default=42,
@@ -197,7 +184,7 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    teacher_model = Model(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
+    teacher_model = Roberta(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
    
     input_dim = 256
     hidden_dim = 512
@@ -208,10 +195,15 @@ def main():
         student_model = biLSTM(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
     elif args.std_model == "biGRU":
         student_model = biGRU(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-    elif args.std_model == "CNN":
-        student_model = TextCNN(args.vocab_size, input_dim, hidden_dim, n_labels)
-    elif args.std_model == "Transformer":
-        student_model = TransformerModel(args.vocab_size, input_dim, 4, hidden_dim, n_labels, n_layers)
+    elif args.std_model == "Roberta":
+        std_config = RobertaConfig.from_pretrained(args.model_name)
+        std_config.num_labels = n_labels
+        std_config.hidden_size = hidden_dim
+        std_config.max_position_embeddings = hidden_dim + 2
+        std_config.vocab_size = args.vocab_size
+        std_config.num_attention_heads = 8
+        std_config.num_hidden_layers = n_layers
+        student_model = Roberta(RobertaForSequenceClassification(std_config))
 
     if args.do_train:
 
