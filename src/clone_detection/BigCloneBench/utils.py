@@ -23,37 +23,37 @@ class TextDataset(Dataset):
         folder = '/'.join(file_path.split('/')[:-1])
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
 
-        # try:
-        #     self.examples = torch.load(cache_file_path)
-        #     self.examples = self.examples[:1]
-        #     logger.info("Loading features from cached file %s", cache_file_path)
-        # except:
-        with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
-            for line in f:
-                line = line.strip()
-                js = json.loads(line)
-                url_to_code[js['idx']] = js['func']
+        try:
+            self.examples = torch.load(cache_file_path)
+            self.examples = self.examples[:1]
+            logger.info("Loading features from cached file %s", cache_file_path)
+        except:
+            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+                for line in f:
+                    line = line.strip()
+                    js = json.loads(line)
+                    url_to_code[js['idx']] = js['func']
 
-        data = []
-        with open(index_filename) as f:
-            for line in f:
-                line = line.strip()
-                url1, url2, label = line.split('\t')
-                if url1 not in url_to_code or url2 not in url_to_code:
-                    continue
-                if label == '0':
-                    label = 0
-                else:
-                    label = 1
-                data.append((url1, url2, label, tokenizer,
+            data = []
+            with open(index_filename) as f:
+                for line in f:
+                    line = line.strip()
+                    url1, url2, label = line.split('\t')
+                    if url1 not in url_to_code or url2 not in url_to_code:
+                        continue
+                    if label == '0':
+                        label = 0
+                    else:
+                        label = 1
+                    data.append((url1, url2, label, tokenizer,
                             args, url_to_code))
 
-        if "test" not in postfix:
-            data = random.sample(data, int(len(data)*0.1))
+            if "test" not in postfix:
+                data = random.sample(data, int(len(data)*0.1))
 
-        pool = multiprocessing.Pool(multiprocessing.cpu_count())
-        self.examples = pool.map(get_example, tqdm(data, total=len(data)))
-        # torch.save(self.examples, cache_file_path)
+            pool = multiprocessing.Pool(multiprocessing.cpu_count())
+            self.examples = pool.map(get_example, tqdm(data, total=len(data)))
+            torch.save(self.examples, cache_file_path)
 
     def __len__(self):
         return len(self.examples)
