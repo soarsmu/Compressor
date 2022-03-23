@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from model import Model
 from utils import set_seed, TextDataset
+from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
 
@@ -154,9 +155,15 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     preds = logits[:, 0] > 0.5
     eval_acc = np.mean(labels==preds)
-   
+    recall = recall_score(labels, preds)
+    precision = precision_score(labels, preds)
+    f1 = f1_score(labels, preds)
+    
     result = {
-        "eval_acc":round(eval_acc, 4)
+        "eval_acc": eval_acc,
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1)
     }
 
     logger.info("***** Eval results *****")

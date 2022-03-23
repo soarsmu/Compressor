@@ -6,12 +6,10 @@ import logging
 import numpy as np
 
 from tqdm import tqdm
-from tokenizers import Tokenizer
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
-from tokenizers.pre_tokenizers import Whitespace
 from torch.utils.data import Dataset
+from tokenizers import ByteLevelBPETokenizer
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
 
@@ -33,22 +31,24 @@ class DistilledDataset(Dataset):
                 for line in f:
                     data.append(json.loads(line.strip()))
 
-            if os.path.exists("./tokenizer_"+str(vocab_size)+".json"):
-                tokenizer = Tokenizer.from_file("./tokenizer_"+str(vocab_size)+".json")
+            if os.path.exists("./tokenizer_"+str(vocab_size)):
+                logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(vocab_size))
+                tokenizer = ByteLevelBPETokenizer.from_file("./tokenizer_"+str(vocab_size)+"/vocab.json", "./tokenizer_"+str(vocab_size)+"/merges.txt")
             else:
-                tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
-                trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]"], vocab_size=vocab_size)
-                tokenizer.pre_tokenizer = Whitespace()
+                logger.info("Creating vocabulary to file %s", "./tokenizer_"+str(vocab_size))
+                tokenizer = ByteLevelBPETokenizer(lowercase=True)
                 texts = [" ".join(d["func"].split()) for d in data]
-                tokenizer.train_from_iterator(texts, trainer)
-                tokenizer.save("./tokenizer_"+str(vocab_size)+".json")
+                tokenizer.train_from_iterator(texts, vocab_size=vocab_size, show_progress=False, special_tokens=["<s>", "<pad>", "</s>", "<unk>"])
+                os.makedirs("./tokenizer_"+str(vocab_size), exist_ok=True)
+                tokenizer.save_model("./tokenizer_"+str(vocab_size))
 
+            logger.info("Creating features to %s", cache_file_path)
             for d in tqdm(data):
                 code = " ".join(d["func"].split())
                 source_ids = tokenizer.encode(code).ids[:args.block_size-2]
-                source_ids = [tokenizer.token_to_id("[CLS]")]+source_ids+[tokenizer.token_to_id("[SEP]")]
+                source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
                 padding_length = args.block_size - len(source_ids)
-                source_ids += [tokenizer.token_to_id("[PAD]")] * padding_length
+                source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
                 self.examples.append((InputFeatures(code, source_ids, d["target"]), convert_examples_to_features(d, teacher_tokenizer, args)))
 
             torch.save(self.examples, cache_file_path)
