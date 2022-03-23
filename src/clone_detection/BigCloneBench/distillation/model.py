@@ -83,7 +83,7 @@ class biGRU(nn.Module):
         return logits
 
 
-def loss_func(std_logits, tea_logits, labels, alpha=0., beta=1., temperature=2.0):
+def loss_func(std_logits, tea_logits, labels, alpha=0.5, beta=0.5, temperature=2.0):
     labels = labels.long()
 
     loss = F.cross_entropy(std_logits, labels)
