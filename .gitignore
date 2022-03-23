@@ -140,4 +140,5 @@ data/defect_detection
 *.gold
 *.output
 *.jsonl
-tokenizer_*
+*.json
+*.txt
