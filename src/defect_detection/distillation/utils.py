@@ -20,7 +20,7 @@ class DistilledDataset(Dataset):
         logger.info("Creating features from file at %s ", file_path)
 
         folder = '/'.join(file_path.split('/')[:-1])
-        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix+"_dis"))
+        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix+"_dis_"+str(vocab_size)))
 
         try:
             self.examples = torch.load(cache_file_path)

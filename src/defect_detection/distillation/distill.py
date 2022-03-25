@@ -33,10 +33,13 @@ def teacher_predict(model, args, loader):
 
 def student_train(T_model, S_model, args, train_loader, test_loader):
     try:
-        t_train_logits = torch.load("./train_logits.bin")
+        logger.info("Loading Teacher Model's Logits from {}".format("./logits/train_logits_"+ str(args.vocab_size) + ".bin"))
+        t_train_logits = torch.load("./logits/train_logits_"+ str(args.vocab_size) + ".bin")
     except:
+        logger.info("Creating Teacher Model's Logits.")
         t_train_logits = teacher_predict(T_model, args, train_loader)
-        torch.save(t_train_logits, "./train_logits.bin")
+        os.makedirs("./logits", exist_ok=True)
+        torch.save(t_train_logits, "./logits/train_logits_"+ str(args.vocab_size) + ".bin")
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
@@ -62,6 +65,7 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
 
         logger.info('Epoch [{}/{}]'.format(epoch + 1, args.epochs))
         bar = tqdm(train_loader, total=len(train_loader))
+        bar.set_description("Train")
         for step, batch in enumerate(bar):
             texts = batch[0].to(args.device)    
             label = batch[1].to(args.device)
@@ -83,12 +87,15 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
         dev_acc = dev_results["eval_acc"]
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
-            os.makedirs("./best/" + args.std_model, exist_ok=True)
-            torch.save(S_model.state_dict(), os.path.join("./best/", args.std_model, "model.bin"))
+            # os.makedirs("./best/" + args.std_model + "/" + str(args.size) + "/" + str(args.alpha), exist_ok=True)
+            output_dir = os.path.join(args.model_dir, "best")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
             logger.info("New best model found and saved.")
         else:
-            os.makedirs("./recent/" + args.std_model, exist_ok=True)
-            torch.save(S_model.state_dict(), os.path.join("./recent/", args.std_model, "model.bin"))
+            output_dir = os.path.join(args.model_dir, "recent")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
         
         logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
 
@@ -100,6 +107,7 @@ def student_evaluate(args, S_model, test_loader):
 
     with torch.no_grad():
         bar = tqdm(test_loader, total=len(test_loader))
+        bar.set_description("Evaluation")
         for batch in bar:
             texts = batch[0].to(args.device)        
             label = batch[1].to(args.device)
@@ -131,26 +139,31 @@ def main():
 
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
-    parser.add_argument("--output_dir", default="./", type=str,
-                        help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-
+    parser.add_argument("--model_dir", default="./", type=str,
+                        help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--choice", default="best", type=str,
                         help="Model to test")
-    parser.add_argument("--vocab_size", default="", type=int,
+    parser.add_argument("--vocab_size", default=10000, type=int,
                         help="Vocabulary Size.")
+    parser.add_argument("--input_dim", default=512, type=int,
+                        help="Embedding Dim.")
+    parser.add_argument("--hidden_dim", default=512, type=int,
+                        help="Hidden dim of student model.")
+    parser.add_argument("--n_layers", default=1, type=int,
+                        help="Num of layers in student model.")
     parser.add_argument("--std_model", default="biLSTM", type=str, required=True,
                         help="Student Model Type.")
-    parser.add_argument("--loss_func", default="ce", type=str, required=True,
+    parser.add_argument("--loss_func", default="ce", type=str,
                         help="Loss Function Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
@@ -201,23 +214,20 @@ def main():
 
     teacher_model = Roberta(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
    
-    input_dim = 256
-    hidden_dim = 512
     n_labels = 2
-    n_layers = 1
 
     if args.std_model == "biLSTM":
-        student_model = biLSTM(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        student_model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.std_model == "biGRU":
-        student_model = biGRU(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        student_model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.std_model == "Roberta":
         std_config = RobertaConfig.from_pretrained(args.model_name)
         std_config.num_labels = n_labels
-        std_config.hidden_size = hidden_dim
-        std_config.max_position_embeddings = hidden_dim + 2
+        std_config.hidden_size = args.hidden_dim
+        std_config.max_position_embeddings = args.hidden_dim + 2
         std_config.vocab_size = args.vocab_size
         std_config.num_attention_heads = 8
-        std_config.num_hidden_layers = n_layers
+        std_config.num_hidden_layers = args.n_layers
         student_model = Roberta(RobertaForSequenceClassification(std_config))
 
     if args.do_train:
@@ -236,7 +246,7 @@ def main():
         student_train(teacher_model, student_model, args, train_dataloader, eval_dataloader)
 
     if args.do_eval:
-        model_dir = "./" + args.choice + "/" + args.std_model + "/" + "model.bin"
+        model_dir = os.path.join(args.model_dir, args.choice, "model.bin")
         student_model.load_state_dict(torch.load(model_dir))
         student_model.to(args.device)
         eval_res = student_evaluate(args, student_model, eval_dataloader)
