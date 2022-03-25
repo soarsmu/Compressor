@@ -155,8 +155,9 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     precision = precision_score(labels, y_preds)
     f1 = f1_score(labels, y_preds)
     result = {
+        "eval_acc": np.mean(labels==y_preds),
         "eval_recall": float(recall),
-        "eval_acc": float(precision),
+        "eval_precision": float(precision),
         "eval_f1": float(f1)
     }
 

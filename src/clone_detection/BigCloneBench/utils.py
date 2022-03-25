@@ -25,7 +25,7 @@ class TextDataset(Dataset):
 
         try:
             self.examples = torch.load(cache_file_path)
-            self.examples = self.examples[:1]
+            # self.examples = self.examples[]
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
             with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
@@ -48,8 +48,8 @@ class TextDataset(Dataset):
                     data.append((url1, url2, label, tokenizer,
                             args, url_to_code))
 
-            if "test" not in postfix:
-                data = random.sample(data, int(len(data)*0.1))
+            # if "test" not in postfix:
+            data = random.sample(data, int(len(data)*0.1))
 
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(get_example, tqdm(data, total=len(data)))
