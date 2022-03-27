@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 from utils import set_seed, load_and_cache_examples
-from model import Roberta, biLSTM, biGRU, loss_func
+from model import Roberta, biLSTM, biGRU, ce_loss_func, mse_loss_func
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 def teacher_predict(model, args, loader):
     model.eval()
-    checkpoint_prefix = "../checkpoint/model.bin"
-    output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
-    model.load_state_dict(torch.load(output_dir))
+    model.load_state_dict(torch.load("../checkpoint/model.bin"))
     model.to(args.device)
     logits = []
     bar = tqdm(loader, total=len(loader))
@@ -35,13 +33,13 @@ def teacher_predict(model, args, loader):
 
 def student_train(T_model, S_model, args, train_loader, test_loader):
     try:
-        t_train_logits = torch.load("./train_logits.bin")
-        # t_test_logits = torch.load("./test_logits.bin")
+        logger.info("Loading Teacher Model's Logits from {}".format("./logits/train_logits_"+ str(args.vocab_size) + ".bin"))
+        t_train_logits = torch.load("./logits/train_logits_"+ str(args.vocab_size) + ".bin")
     except:
+        logger.info("Creating Teacher Model's Logits.")
         t_train_logits = teacher_predict(T_model, args, train_loader)
-        # t_test_logits = teacher_predict(T_model, args, test_loader)
-        torch.save(t_train_logits, "./train_logits.bin")
-        # torch.save(t_test_logits, "./test_logits.bin")
+        os.makedirs("./logits", exist_ok=True)
+        torch.save(t_train_logits, "./logits/train_logits_"+ str(args.vocab_size) + ".bin")
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
@@ -58,7 +56,7 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_steps*0.1,
                                                 num_training_steps=num_steps)
-    dev_best_f1 = 0
+    dev_best_acc = 0
 
     for epoch in range(args.epochs):
         S_model.train()
@@ -67,13 +65,16 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
 
         logger.info('Epoch [{}/{}]'.format(epoch + 1, args.epochs))
         bar = tqdm(train_loader, total=len(train_loader))
+        bar.set_description("Train")
         for step, batch in enumerate(bar):
             texts = batch[0].to(args.device)        
             label = batch[1].to(args.device)
 
             s_logits = S_model(texts)
-
-            loss = loss_func(s_logits, t_train_logits[step], label)
+            if args.loss_func == "ce":
+                loss = ce_loss_func(s_logits, t_train_logits[step], label, args.alpha, args.temperature)
+            elif args.loss_func == "mse":
+                loss = mse_loss_func(s_logits, t_train_logits[step], label, args.alpha, args.normalized)
             loss.backward()
             train_loss += loss.item()
             tr_num += 1
@@ -82,20 +83,21 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
             optimizer.step()
             optimizer.zero_grad()
 
-        dev_res = student_evaluate(args, S_model, test_loader)
-        dev_f1 = dev_res["eval_f1"]
-        dev_recall = dev_res["eval_recall"]
-        dev_acc = dev_res["eval_acc"]
-
-        if dev_f1 >= dev_best_f1:
-            dev_best_f1 = dev_f1
-            os.makedirs("./best/" + args.std_model, exist_ok=True)
-            torch.save(S_model.state_dict(), os.path.join("./best/", args.std_model, "model.bin"))
+        dev_results = student_evaluate(args, S_model, test_loader)
+        dev_acc = dev_results["eval_acc"]
+        if dev_acc >= dev_best_acc:
+            dev_best_acc = dev_acc
+            # os.makedirs("./best/" + args.std_model + "/" + str(args.size) + "/" + str(args.alpha), exist_ok=True)
+            output_dir = os.path.join(args.model_dir, "best")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
+            logger.info("New best model found and saved.")
         else:
-            os.makedirs("./recent/" + args.std_model, exist_ok=True)
-            torch.save(S_model.state_dict(), os.path.join("./recent/", args.std_model, "model.bin"))
-
-        logger.info("Train Loss: {0}, Val F1: {1}, Val Acc: {2}, Val Recall: {3}".format(train_loss/tr_num, dev_f1, dev_acc, dev_recall))
+            output_dir = os.path.join(args.model_dir, "recent")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
+        
+        logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
     
 
 def student_evaluate(args, S_model, test_loader):
@@ -105,6 +107,7 @@ def student_evaluate(args, S_model, test_loader):
 
     with torch.no_grad():
         bar = tqdm(test_loader, total=len(test_loader))
+        bar.set_description("Evaluation")
         for batch in bar:
             texts = batch[0].to(args.device)        
             label = batch[1].to(args.device)
@@ -122,8 +125,9 @@ def student_evaluate(args, S_model, test_loader):
     precision = precision_score(labels_all, preds)
     f1 = f1_score(labels_all, preds)
     result = {
+        "eval_acc": np.mean(labels_all==preds),
         "eval_recall": float(recall),
-        "eval_acc": float(precision),
+        "eval_precision": float(precision),
         "eval_f1": float(f1)
     }
     return result
@@ -134,36 +138,46 @@ def main():
 
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
-    parser.add_argument("--output_dir", default="./", type=str,
-                        help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-
+    parser.add_argument("--model_dir", default="./", type=str,
+                        help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--choice", default="best", type=str,
                         help="Model to test")
-    parser.add_argument("--vocab_size", default="", type=int,
+    parser.add_argument("--vocab_size", default=10000, type=int,
                         help="Vocabulary Size.")
-    parser.add_argument("--std_model", default="biLSTM", type=str,
+    parser.add_argument("--input_dim", default=512, type=int,
+                        help="Embedding Dim.")
+    parser.add_argument("--hidden_dim", default=512, type=int,
+                        help="Hidden dim of student model.")
+    parser.add_argument("--n_layers", default=1, type=int,
+                        help="Num of layers in student model.")
+    parser.add_argument("--std_model", default="biLSTM", type=str, required=True,
                         help="Student Model Type.")
+    parser.add_argument("--loss_func", default="ce", type=str,
+                        help="Loss Function Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-
-    parser.add_argument("--learning_rate", default=2e-5, type=float,
+    parser.add_argument("--alpha", default=0.5, type=float,
+                        help="Weighting factor in loss fucntion.")
+    parser.add_argument("--temperature", default=2.0, type=float,
+                        help="Temperature factor in loss fucntion.")
+    parser.add_argument("--normalized", default=True, type=bool,
+                        help="Whether to normalize loss in mse.")
+    parser.add_argument("--learning_rate", default=1e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", default=0.5, type=float,
-                        help="Max gradient norm.")
     parser.add_argument("--no_cuda", action='store_true',
                         help="Avoid using CUDA when available")
     parser.add_argument('--seed', type=int, default=42,
@@ -199,27 +213,23 @@ def main():
 
     teacher_model = Roberta(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
     
-    input_dim = 256
-    hidden_dim = 512
     n_labels = 2
-    n_layers = 1
 
     if args.std_model == "biLSTM":
-        student_model = biLSTM(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        student_model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.std_model == "biGRU":
-        student_model = biGRU(args.vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        student_model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.std_model == "Roberta":
         std_config = RobertaConfig.from_pretrained(args.model_name)
         std_config.num_labels = n_labels
-        std_config.hidden_size = hidden_dim
-        std_config.max_position_embeddings = hidden_dim + 2
+        std_config.hidden_size = args.hidden_dim
+        # std_config.max_position_embeddings = args.hidden_dim + 2
         std_config.vocab_size = args.vocab_size
         std_config.num_attention_heads = 8
-        std_config.num_hidden_layers = n_layers
+        std_config.num_hidden_layers = args.n_layers
         student_model = Roberta(RobertaModel(std_config), std_config, args)
 
     if args.do_train:
-
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
         train_sampler = RandomSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
@@ -234,11 +244,11 @@ def main():
         student_train(teacher_model, student_model, args, train_dataloader, eval_dataloader)
 
     if args.do_eval:
-        model_dir = "./" + args.choice + "/" + args.std_model + "/" + "model.bin"
+        model_dir = os.path.join(args.model_dir, args.choice, "model.bin")
         student_model.load_state_dict(torch.load(model_dir))
         student_model.to(args.device)
-        eval_acc = student_evaluate(args, student_model, eval_dataloader)
-        logger.info("Acc: {0}".format(eval_acc))
+        eval_res = student_evaluate(args, student_model, eval_dataloader)
+        logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 
 
 if __name__ == "__main__":

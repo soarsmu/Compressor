@@ -7,17 +7,15 @@ import numpy as np
 import multiprocessing
 
 from tqdm import tqdm
-from tokenizers import Tokenizer
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
-from tokenizers.pre_tokenizers import Whitespace
 from torch.utils.data import Dataset
+from tokenizers import ByteLevelBPETokenizer
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
 
 
 class TextDataset(Dataset):
-    def __init__(self, teacher_tokenizer, args, vocab_size=10000, file_path=None):
+    def __init__(self, teacher_tokenizer, args, file_path=None):
         postfix = file_path.split('/')[-1].split('.')[0]
         self.examples = []
         index_filename = file_path
@@ -25,7 +23,7 @@ class TextDataset(Dataset):
         url_to_code = {}
 
         folder = '/'.join(file_path.split('/')[:-1])
-        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
+        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix+"_dis_"+str(args.vocab_size)))
 
         try:
             self.examples = torch.load(cache_file_path)
@@ -53,26 +51,25 @@ class TextDataset(Dataset):
             # if "test" not in postfix:
             data = random.sample(data, int(len(data)*0.01))
 
-            if os.path.exists("./tokenizer_"+str(vocab_size)+".json"):
-                tokenizer = Tokenizer.from_file("./tokenizer_"+str(vocab_size)+".json")
+            if os.path.exists("./tokenizer_"+str(args.vocab_size)):
+                logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(args.vocab_size))
+                tokenizer = ByteLevelBPETokenizer.from_file("./tokenizer_"+str(args.vocab_size)+"/vocab.json", "./tokenizer_"+str(args.vocab_size)+"/merges.txt")
             else:
-                tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
-                trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]"], vocab_size=vocab_size)
-                tokenizer.pre_tokenizer = Whitespace()
+                logger.info("Creating vocabulary to file %s", "./tokenizer_"+str(args.vocab_size))
+                tokenizer = ByteLevelBPETokenizer(lowercase=True)
 
                 texts = []
                 for d in data:
                     texts.append(" ".join(url_to_code[d[0]].split()))
                     texts.append(" ".join(url_to_code[d[1]].split()))
 
-                tokenizer.train_from_iterator(texts, trainer)
-                tokenizer.save("./tokenizer_"+str(vocab_size)+".json")
+                tokenizer.train_from_iterator(texts, vocab_size=args.vocab_size, show_progress=False, special_tokens=["<s>", "<pad>", "</s>", "<unk>"])
+                os.makedirs("./tokenizer_"+str(args.vocab_size), exist_ok=True)
+                tokenizer.save_model("./tokenizer_"+str(args.vocab_size))
 
             mp_data = []
             for d in data:
                 mp_data.append((d, tokenizer, teacher_tokenizer, args, url_to_code))
-
-            
 
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(preprocess, tqdm(mp_data, total=len(mp_data)))
@@ -95,12 +92,12 @@ def preprocess(item):
     code2 = " ".join(url_to_code[d[1]].split())
     code1_ids = tokenizer.encode(code1).ids[:args.block_size-2]
     code2_ids = tokenizer.encode(code2).ids[:args.block_size-2]
-    code1_ids = [tokenizer.token_to_id("[CLS]")]+code1_ids+[tokenizer.token_to_id("[SEP]")]
-    code2_ids = [tokenizer.token_to_id("[CLS]")]+code2_ids+[tokenizer.token_to_id("[SEP]")]
+    code1_ids = [tokenizer.token_to_id("<s>")]+code1_ids+[tokenizer.token_to_id("</s>")]
+    code2_ids = [tokenizer.token_to_id("<s>")]+code2_ids+[tokenizer.token_to_id("</s>")]
     padding_length = args.block_size - len(code1_ids)
-    code1_ids += [tokenizer.token_to_id("[PAD]")] * padding_length
+    code1_ids += [tokenizer.token_to_id("<pad>")] * padding_length
     padding_length = args.block_size - len(code2_ids)
-    code2_ids += [tokenizer.token_to_id("[PAD]")] * padding_length
+    code2_ids += [tokenizer.token_to_id("<pad>")] * padding_length
 
     source_tokens = code1 + code2
     source_ids = code1_ids + code2_ids

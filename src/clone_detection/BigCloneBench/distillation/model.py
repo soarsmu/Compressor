@@ -83,7 +83,7 @@ class biGRU(nn.Module):
         return logits
 
 
-def loss_func(std_logits, tea_logits, labels, alpha=0.5, beta=0.5, temperature=2.0):
+def ce_loss_func(std_logits, tea_logits, labels, alpha=0.9, temperature=2.0):
     labels = labels.long()
 
     loss = F.cross_entropy(std_logits, labels)
@@ -91,8 +91,17 @@ def loss_func(std_logits, tea_logits, labels, alpha=0.5, beta=0.5, temperature=2
     ce_loss = F.kl_div(F.log_softmax(std_logits/temperature), F.softmax(tea_logits/temperature), reduction="batchmean") * (temperature**2)
     # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
 
-    mse_loss = F.mse_loss(std_logits, tea_logits, reduction="sum")
-    mse_loss /= std_logits.size(0)
-    # TODO: F.normalize
+    return alpha * loss + (1. - alpha) * ce_loss
 
-    return alpha * loss + beta * ce_loss #+ (1. - alpha - beta) * mse_loss
+def mse_loss_func(std_logits, tea_logits, labels, alpha=0.9, normalized=True):
+    labels = labels.long()
+
+    loss = F.cross_entropy(std_logits, labels)
+    
+    if normalized:
+        mse_loss = F.mse_loss(F.normalize(std_logits, p=2, dim=1), F.normalize(tea_logits, p=2, dim=1), reduction="sum")
+    else:
+        mse_loss = F.mse_loss(std_logits, tea_logits, reduction="sum")
+    mse_loss /= std_logits.size(0)
+
+    return alpha * loss + (1. - alpha) * mse_loss
