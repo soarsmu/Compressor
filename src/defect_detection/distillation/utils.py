@@ -30,7 +30,7 @@ class DistilledDataset(Dataset):
             with open(file_path) as f:
                 for line in f:
                     data.append(json.loads(line.strip()))
-
+    
             if os.path.exists("./tokenizer_"+str(vocab_size)):
                 logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(vocab_size))
                 tokenizer = ByteLevelBPETokenizer.from_file("./tokenizer_"+str(vocab_size)+"/vocab.json", "./tokenizer_"+str(vocab_size)+"/merges.txt")

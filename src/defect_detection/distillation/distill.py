@@ -231,7 +231,6 @@ def main():
         student_model = Roberta(RobertaForSequenceClassification(std_config))
 
     if args.do_train:
-
         train_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.train_data_file)
         train_sampler = RandomSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
