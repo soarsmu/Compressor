@@ -224,7 +224,7 @@ def main():
         std_config = RobertaConfig.from_pretrained(args.model_name)
         std_config.num_labels = n_labels
         std_config.hidden_size = args.hidden_dim
-        std_config.max_position_embeddings = args.hidden_dim + 2
+        std_config.max_position_embeddings = args.block_size + 2
         std_config.vocab_size = args.vocab_size
         std_config.num_attention_heads = 8
         std_config.num_hidden_layers = args.n_layers
