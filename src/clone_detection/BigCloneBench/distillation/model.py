@@ -2,9 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.nn import CrossEntropyLoss
-
-
 class RobertaClassificationHead(nn.Module):
 
     def __init__(self, config):

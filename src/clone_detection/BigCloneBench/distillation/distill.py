@@ -174,7 +174,7 @@ def main():
                         help="Temperature factor in loss fucntion.")
     parser.add_argument("--normalized", default=True, type=bool,
                         help="Whether to normalize loss in mse.")
-    parser.add_argument("--learning_rate", default=1e-5, type=float,
+    parser.add_argument("--learning_rate", default=2e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
