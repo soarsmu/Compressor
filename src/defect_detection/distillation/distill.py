@@ -1,4 +1,3 @@
-from itertools import count
 import os
 import torch
 import logging
@@ -8,6 +7,7 @@ import numpy as np
 import torch.nn.functional as F
 
 from tqdm import tqdm
+from torchinfo import summary
 from utils import set_seed, DistilledDataset
 from model import biLSTM, biGRU, Roberta, ce_loss_func, mse_loss_func
 from sklearn.metrics import recall_score, precision_score, f1_score
@@ -43,7 +43,11 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
-
+    # summary(S_model, (1, 400), dtypes=[torch.long], verbose=2,
+    # col_width=16,
+    # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
+    # row_settings=["var_names"],)
+    # exit()
     num_steps = len(train_loader) * args.epochs
     
     no_decay = ['bias', 'LayerNorm.weight']
@@ -71,6 +75,7 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
             label = batch[1].to(args.device)
 
             s_logits = S_model(texts)
+
             if args.loss_func == "ce":
                 loss = ce_loss_func(s_logits, t_train_logits[step], label, args.alpha, args.temperature)
             elif args.loss_func == "mse":
