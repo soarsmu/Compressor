@@ -1,6 +1,7 @@
 import os
 import json
 import torch
+import optuna
 import random
 import logging
 import numpy as np
@@ -12,7 +13,6 @@ from tokenizers import ByteLevelBPETokenizer
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 logger = logging.getLogger(__name__)
-
 
 class TextDataset(Dataset):
     def __init__(self, teacher_tokenizer, args, file_path=None):
