@@ -11,10 +11,10 @@ import random
 import logging
 import copy
 
-from functools  import reduce
-from operator   import add
-from genome     import Genome
-from utils      import IDgen
+from functools import reduce
+from operator import add
+from genome import Genome
+from utils import IDgen
 from allgenomes import AllGenomes
 
 
@@ -36,13 +36,13 @@ class Evolver():
         """
 
         self.all_possible_genes = all_possible_genes
-        self.retain             = retain
-        self.random_select      = random_select
-        self.mutate_chance      = mutate_chance
+        self.retain = retain
+        self.random_select = random_select
+        self.mutate_chance = mutate_chance
 
-        #set the ID gen
+        # set the ID gen
         self.ids = IDgen()
-        
+
     def create_population(self, count):
         """Create a population of random networks.
 
@@ -59,19 +59,20 @@ class Evolver():
         i = 0
 
         while i < count:
-            
+
             # Initialize a new genome.
-            genome = Genome( self.all_possible_genes, {}, self.ids.get_next_ID(), 0, 0, self.ids.get_Gen() )
+            genome = Genome(self.all_possible_genes, {},
+                            self.ids.get_next_ID(), 0, 0, self.ids.get_Gen())
 
             # Set it to random parameters.
             genome.set_genes_random()
 
             if i == 0:
-                #this is where we will store all genomes
-                self.master = AllGenomes( genome )
+                # this is where we will store all genomes
+                self.master = AllGenomes(genome)
             else:
                 # Make sure it is unique....
-                while self.master.is_duplicate( genome ):
+                while self.master.is_duplicate(genome):
                     genome.mutate_one_gene()
 
             # Add the genome to our population.
@@ -83,9 +84,9 @@ class Evolver():
 
             i += 1
 
-        #self.master.print_all_genomes()
-        
-        #exit()
+        # self.master.print_all_genomes()
+
+        # exit()
 
         return pop
 
@@ -120,26 +121,27 @@ class Evolver():
         """
         children = []
 
-        #where do we recombine? 0, 1, 2, 3, 4... N?
-        #with four genes, there are three choices for the recombination
-        # ___ * ___ * ___ * ___ 
-        #0 -> no recombination, and N == length of dictionary -> no recombination
-        #0 and 4 just (re)create more copies of the parents
-        #so the range is always 1 to len(all_possible_genes) - 1
+        # where do we recombine? 0, 1, 2, 3, 4... N?
+        # with four genes, there are three choices for the recombination
+        # ___ * ___ * ___ * ___
+        # 0 -> no recombination, and N == length of dictionary -> no recombination
+        # 0 and 4 just (re)create more copies of the parents
+        # so the range is always 1 to len(all_possible_genes) - 1
         pcl = len(self.all_possible_genes)
-        
-        recomb_loc = random.randint(1,pcl - 1) 
 
-        #for _ in range(2): #make _two_ children - could also make more
+        recomb_loc = random.randint(1, pcl - 1)
+
+        # for _ in range(2): #make _two_ children - could also make more
         child1 = {}
         child2 = {}
 
-        #enforce defined genome order using list 
+        # enforce defined genome order using list
         #keys = ['nb_neurons', 'nb_layers', 'activation', 'optimizer']
         keys = list(self.all_possible_genes)
-        keys = sorted(keys) #paranoia - just to make sure we do not add unintentional randomization
+        # paranoia - just to make sure we do not add unintentional randomization
+        keys = sorted(keys)
 
-        #*** CORE RECOMBINATION CODE ****
+        # *** CORE RECOMBINATION CODE ****
         for x in range(0, pcl):
             if x < recomb_loc:
                 child1[keys[x]] = mom.geneparam[keys[x]]
@@ -151,29 +153,31 @@ class Evolver():
         # Initialize a new genome
         # Set its parameters to those just determined
         # they both have the same mom and dad
-        genome1 = Genome( self.all_possible_genes, child1, self.ids.get_next_ID(), mom.u_ID, dad.u_ID, self.ids.get_Gen() )
-        genome2 = Genome( self.all_possible_genes, child2, self.ids.get_next_ID(), mom.u_ID, dad.u_ID, self.ids.get_Gen() )
+        genome1 = Genome(self.all_possible_genes, child1, self.ids.get_next_ID(
+        ), mom.u_ID, dad.u_ID, self.ids.get_Gen())
+        genome2 = Genome(self.all_possible_genes, child2, self.ids.get_next_ID(
+        ), mom.u_ID, dad.u_ID, self.ids.get_Gen())
 
-        #at this point, there is zero guarantee that the genome is actually unique
+        # at this point, there is zero guarantee that the genome is actually unique
 
         # Randomly mutate one gene
-        if self.mutate_chance > random.random(): 
+        if self.mutate_chance > random.random():
             genome1.mutate_one_gene()
 
         if self.mutate_chance > random.random():
             genome2.mutate_one_gene()
 
-        #do we have a unique child or are we just retraining one we already have anyway?
+        # do we have a unique child or are we just retraining one we already have anyway?
         while self.master.is_duplicate(genome1):
             genome1.mutate_one_gene()
 
         self.master.add_genome(genome1)
-        
+
         while self.master.is_duplicate(genome2):
             genome2.mutate_one_gene()
 
         self.master.add_genome(genome2)
-        
+
         children.append(genome1)
         children.append(genome2)
 
@@ -189,18 +193,19 @@ class Evolver():
             (list): The evolved population of networks
 
         """
-        #increase generation 
+        # increase generation
         self.ids.increase_Gen()
 
         # Get scores for each genome
         graded = [(self.fitness(genome), genome) for genome in pop]
 
-        #and use those scores to fill in the master list
+        # and use those scores to fill in the master list
         for genome in pop:
             self.master.set_accuracy(genome)
 
         # Sort on the scores.
-        graded = [x[1] for x in sorted(graded, key=lambda x: x[0], reverse=True)]
+        graded = [x[1]
+                  for x in sorted(graded, key=lambda x: x[0], reverse=True)]
 
         # Get the number we want to keep unchanged for the next cycle.
         retain_length = int(len(graded)*self.retain)
@@ -215,31 +220,31 @@ class Evolver():
         for genome in graded[retain_length:]:
             if self.random_select > random.random():
                 gtc = copy.deepcopy(genome)
-                
+
                 while self.master.is_duplicate(gtc):
                     gtc.mutate_one_gene()
 
-                gtc.set_generation( self.ids.get_Gen() )
+                gtc.set_generation(self.ids.get_Gen())
                 new_generation.append(gtc)
                 self.master.add_genome(gtc)
-        
+
         # Now find out how many spots we have left to fill.
-        ng_length      = len(new_generation)
+        ng_length = len(new_generation)
 
         desired_length = len(pop) - ng_length
 
-        children       = []
+        children = []
 
         # Add children, which are bred from pairs of remaining (i.e. very high or lower scoring) genomes.
         while len(children) < desired_length:
 
             # Get a random mom and dad, but, need to make sure they are distinct
-            parents  = random.sample(range(ng_length-1), k=2)
-            
-            i_male   = parents[0]
+            parents = random.sample(range(ng_length-1), k=2)
+
+            i_male = parents[0]
             i_female = parents[1]
 
-            male   = new_generation[i_male]
+            male = new_generation[i_male]
             female = new_generation[i_female]
 
             # Recombine and mutate
@@ -249,7 +254,7 @@ class Evolver():
             # Add the children one at a time.
             for baby in babies:
                 # Don't grow larger than desired length.
-                #if len(children) < desired_length:
+                # if len(children) < desired_length:
                 children.append(baby)
 
         new_generation.extend(children)
