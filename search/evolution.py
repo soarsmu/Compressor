@@ -1,27 +1,17 @@
-"""
-Class that holds a genetic algorithm for evolving a network.
-
-Inspiration:
-
-    http://lethain.com/genetic-algorithms-cool-name-damn-simple/
-"""
-from __future__ import print_function
-
 import random
 import logging
 import copy
 
-from functools import reduce
-from operator import add
-from genome import Genome
 from utils import IDgen
-from allgenomes import AllGenomes
+from operator import add
+from functools import reduce
+from genome import Genome, AllGenomes
 
 
 class Evolver():
     """Class that implements genetic algorithm."""
 
-    def __init__(self, all_possible_genes, retain=0.15, random_select=0.1, mutate_chance=0.3):
+    def __init__(self, all_possible_genes, retain=0.3, random_select=0.1, mutate_chance=0.3):
         """Create an optimizer.
 
         Args:
@@ -49,10 +39,8 @@ class Evolver():
         Args:
             count (int): Number of networks to generate, aka the
                 size of the population
-
         Returns:
             (list): Population of network objects
-
         """
         pop = []
 
@@ -74,7 +62,6 @@ class Evolver():
                 # Make sure it is unique....
                 while self.master.is_duplicate(genome):
                     genome.mutate_one_gene()
-
             # Add the genome to our population.
             pop.append(genome)
 
@@ -97,27 +84,21 @@ class Evolver():
 
     def grade(self, pop):
         """Find average fitness for a population.
-
         Args:
             pop (list): The population of networks/genome
-
         Returns:
             (float): The average accuracy of the population
-
         """
         summed = reduce(add, (self.fitness(genome) for genome in pop))
         return summed / float((len(pop)))
 
     def breed(self, mom, dad):
         """Make two children from parental genes.
-
         Args:
             mother (dict): genome parameters
             father (dict): genome parameters
-
         Returns:
             (list): Two network objects
-
         """
         children = []
 
@@ -205,7 +186,7 @@ class Evolver():
 
         # Sort on the scores.
         graded = [x[1]
-                  for x in sorted(graded, key=lambda x: x[0], reverse=True)]
+                  for x in sorted(graded, key=lambda x: x[0])]
 
         # Get the number we want to keep unchanged for the next cycle.
         retain_length = int(len(graded)*self.retain)

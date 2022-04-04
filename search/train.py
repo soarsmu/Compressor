@@ -1,310 +1,404 @@
-"""
-Generic setup of the data sources and the model training. 
-
-Based on:
-    https://github.com/fchollet/keras/blob/master/examples/mnist_mlp.py
-and also on 
-    https://github.com/fchollet/keras/blob/master/examples/mnist_cnn.py
-
-"""
-
-#import keras
-from keras.datasets import mnist, cifar10
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten
-from keras.utils.np_utils import to_categorical
-from keras.callbacks import EarlyStopping, Callback
-from keras.layers import Conv2D, MaxPooling2D
-from keras import backend as K
-
+import os
+import torch
+import torch.nn as nn
 import logging
+import argparse
+import warnings
+import numpy as np
+import torch.nn.functional as F
 
-# Helper: Early stopping.
-early_stopper = EarlyStopping(
-    monitor="val_loss", min_delta=0.1, patience=2, verbose=0, mode="auto")
+from tqdm import tqdm
+from torchinfo import summary
 
-# patience=5)
-# monitor="val_loss",patience=2,verbose=0
-# In your case, you can see that your training loss is not dropping - which means you are learning nothing after each epoch.
-# It look like there"s nothing to learn in this model, aside from some trivial linear-like fit or cutoff value.
+from sklearn.metrics import recall_score, precision_score, f1_score
+from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
 
-
-def get_cifar10_mlp():
-    """Retrieve the CIFAR dataset and process the data."""
-    # Set defaults.
-    nb_classes = 10  # dataset dependent
-    batch_size = 64
-    epochs = 4
-    input_shape = (3072,)  # because it"s RGB
-
-    # Get the data.
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-    x_train = x_train.reshape(50000, 3072)
-    x_test = x_test.reshape(10000, 3072)
-    x_train = x_train.astype("float32")
-    x_test = x_test.astype("float32")
-    x_train /= 255
-    x_test /= 255
-
-    # convert class vectors to binary class matrices
-    y_train = to_categorical(y_train, nb_classes)
-    y_test = to_categorical(y_test, nb_classes)
-
-    return (nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs)
+warnings.filterwarnings("ignore")
+logger = logging.getLogger(__name__)
 
 
-def get_cifar10_cnn():
-    """Retrieve the MNIST dataset and process the data."""
-    # Set defaults.
-    nb_classes = 10  # dataset dependent
-    batch_size = 128
-    epochs = 4
+def teacher_predict(model, args, loader):
+    model.eval()
+    model.load_state_dict(torch.load("../checkpoint/model.bin"))
+    model.to(args.device)
+    logits = []
+    with torch.no_grad():
+        bar = tqdm(loader, total=len(loader))
+        for batch in bar:
+            inputs = batch[2].to(args.device)
+            logit = model(inputs)
+            logits.append(logit)
+    return logits
 
-    # the data, shuffled and split between train and test sets
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+def student_train(T_model, S_model, args, train_loader, test_loader):
+    try:
+        logger.info("Loading Teacher Model's Logits from {}".format("./logits/train_logits_"+ str(args.vocab_size) + ".bin"))
+        t_train_logits = torch.load("./logits/train_logits_"+ str(args.vocab_size) + ".bin")
+    except:
+        logger.info("Creating Teacher Model's Logits.")
+        t_train_logits = teacher_predict(T_model, args, train_loader)
+        os.makedirs("./logits", exist_ok=True)
+        torch.save(t_train_logits, "./logits/train_logits_"+ str(args.vocab_size) + ".bin")
 
-    # convert class vectors to binary class matrices
-    y_train = to_categorical(y_train, nb_classes)
-    y_test = to_categorical(y_test,  nb_classes)
+    total_params = sum(p.numel() for p in S_model.parameters())
+    logger.info(f'{total_params:,} total parameters.')
+    logger.info(f'{total_params*4/1e6} MB model size')
 
-    # x._train shape: (50000, 32, 32, 3)
-    # input shape (32, 32, 3)
-    input_shape = x_train.shape[1:]
+    # summary(S_model, (1, 400), dtypes=[torch.long], verbose=2,
+    # col_width=16,
+    # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
+    # row_settings=["var_names"],)
+    # exit()
+    num_steps = len(train_loader) * args.epochs
+    
+    no_decay = ['bias', 'LayerNorm.weight']
 
-    #print("x_train shape:", x_train.shape)
-    #print(x_train.shape[0], "train samples")
-    #print(x_test.shape[0], "test samples")
-    #print("input shape", input_shape)
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in S_model.named_parameters(
+        ) if not any(nd in n for nd in no_decay)]}
+    ]
 
-    x_train = x_train.astype("float32")
-    x_test = x_test.astype("float32")
-    x_train /= 255
-    x_test /= 255
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_steps*0.1,
+                                                num_training_steps=num_steps)
+    dev_best_acc = 0
 
-    return (nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs)
+    for epoch in range(args.epochs):
+        S_model.train()
+        tr_num = 0
+        train_loss = 0
+
+        logger.info('Epoch [{}/{}]'.format(epoch + 1, args.epochs))
+        bar = tqdm(train_loader, total=len(train_loader))
+        bar.set_description("Train")
+        for step, batch in enumerate(bar):
+            texts = batch[0].to(args.device)    
+            label = batch[1].to(args.device)
+
+            s_logits = S_model(texts)
+
+            if args.loss_func == "ce":
+                loss = ce_loss_func(s_logits, t_train_logits[step], label, args.alpha, args.temperature)
+            elif args.loss_func == "mse":
+                loss = mse_loss_func(s_logits, t_train_logits[step], label, args.alpha, args.normalized)
+            loss.backward()
+            train_loss += loss.item()
+            tr_num += 1
+
+            scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
+
+        dev_results = student_evaluate(args, S_model, test_loader)
+        dev_acc = dev_results["eval_acc"]
+        if dev_acc >= dev_best_acc:
+            dev_best_acc = dev_acc
+            # os.makedirs("./best/" + args.std_model + "/" + str(args.size) + "/" + str(args.alpha), exist_ok=True)
+            output_dir = os.path.join(args.model_dir, "best")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
+            logger.info("New best model found and saved.")
+        else:
+            output_dir = os.path.join(args.model_dir, "recent")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(S_model.state_dict(), os.path.join(output_dir, "model.bin"))
+        
+        logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
 
 
-def get_mnist_mlp():
-    """Retrieve the MNIST dataset and process the data."""
-    # Set defaults.
-    nb_classes = 10  # dataset dependent
-    batch_size = 64
-    epochs = 4
-    input_shape = (784,)
+def student_evaluate(args, S_model, test_loader):
+    S_model.eval()
+    predict_all = []
+    labels_all = []
 
-    # Get the data.
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    x_train = x_train.reshape(60000, 784)
-    x_test = x_test.reshape(10000, 784)
-    x_train = x_train.astype("float32")
-    x_test = x_test.astype("float32")
-    x_train /= 255
-    x_test /= 255
+    with torch.no_grad():
+        bar = tqdm(test_loader, total=len(test_loader))
+        bar.set_description("Evaluation")
+        for batch in bar:
+            texts = batch[0].to(args.device)        
+            label = batch[1].to(args.device)
+            logits = S_model(texts)
+            prob = F.softmax(logits)
 
-    # convert class vectors to binary class matrices
-    y_train = to_categorical(y_train, nb_classes)
-    y_test = to_categorical(y_test, nb_classes)
+            predict_all.append(prob.cpu().numpy())
+            labels_all.append(label.cpu().numpy())
 
-    return (nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs)
+    predict_all = np.concatenate(predict_all, 0)
+    labels_all = np.concatenate(labels_all, 0)
+
+    preds = predict_all[:, 0] > 0.5
+    recall = recall_score(labels_all, preds)
+    precision = precision_score(labels_all, preds)
+    f1 = f1_score(labels_all, preds)
+    results = {
+        "eval_acc": np.mean(labels_all==preds),
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1)
+    }
+
+    return results
+
+class biGRU(nn.Module):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
+        super(biGRU, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        self.gru = nn.GRU(input_size=input_dim,
+                            hidden_size=hidden_dim,
+                            num_layers=n_layers,
+                            batch_first=True, 
+                            bidirectional=True)
+
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+
+    def forward(self, input_ids):
+        embed = self.embedding(input_ids)
+        _, hidden = self.gru(embed)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        logits = self.fc(hidden)
+        # prob = F.sigmoid(logits)
+        return logits
+
+def train_and_score(genes, dataset):
+    print(genes.geneparam.items())
+    S_model = biGRU(genes.geneparam["vocab_size"], genes.geneparam["input_dim"], genes.geneparam["hidden_dim"], 2, genes.geneparam["n_layers"])
+    S_model.to("cuda")
+    total_params = sum(p.numel() for p in S_model.parameters())
+    logger.info(f'{total_params:,} total parameters.')
+    logger.info(f'{total_params*4/1e6} MB model size')
+
+    tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
+    tokenizer.do_lower_case = True
+    train_dataset = DistilledDataset(400, tokenizer, genes.geneparam["vocab_size"], dataset)
+    train_sampler = RandomSampler(train_dataset)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=16)
+
+    # summary(S_model, (1, 400), dtypes=[torch.long], verbose=2,
+    # col_width=16,
+    # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
+    # row_settings=["var_names"],)
+    # exit()
+    num_steps = len(train_dataloader) * 1
+    
+    no_decay = ['bias', 'LayerNorm.weight']
+
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in S_model.named_parameters(
+        ) if not any(nd in n for nd in no_decay)]}
+    ]
+
+    optimizer = AdamW(optimizer_grouped_parameters, lr=genes.geneparam["lr"], eps=1e-8)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_steps*0.1,
+                                                num_training_steps=num_steps)
+
+    for epoch in range(1):
+        S_model.train()
+        tr_num = 0
+        train_loss = 0
+
+        logger.info('Epoch [{}/{}]'.format(epoch + 1, 15))
+        bar = tqdm(train_dataloader, total=len(train_dataloader))
+        bar.set_description("Train")
+        for step, batch in enumerate(bar):
+            texts = batch[0].to("cuda")    
+            label = batch[1].to("cuda")
+
+            s_logits = S_model(texts)
+
+            loss = loss_func(s_logits, label, genes.geneparam["alpha"], genes.geneparam["temperature"])
+            loss.backward()
+            train_loss += loss.item()
+            tr_num += 1
+
+            scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
+
+    return train_loss/tr_num
+
+import os
+import json
+import torch
+import random
+import logging
+import numpy as np
+
+from tqdm import tqdm
+from torch.utils.data import Dataset
+from tokenizers import ByteLevelBPETokenizer
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+logger = logging.getLogger(__name__)
 
 
-def get_mnist_cnn():
-    """Retrieve the MNIST dataset and process the data."""
-    # Set defaults.
-    nb_classes = 10  # dataset dependent
-    batch_size = 128
-    epochs = 4
+class DistilledDataset(Dataset):
+    def __init__(self, block_size, teacher_tokenizer, vocab_size=10000, file_path=None):
+        postfix = file_path.split('/')[-1].split('.')[0]
+        self.examples = []
+        logger.info("Creating features from file at %s ", file_path)
 
-    # Input image dimensions
-    img_rows, img_cols = 28, 28
+        folder = '/'.join(file_path.split('/')[:-1])
+        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix+"_dis_"+str(vocab_size)))
 
-    # Get the data.
-    # the data, shuffled and split between train and test sets
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+        try:
+            self.examples = torch.load(cache_file_path)
+            logger.info("Loading features from cached file %s", cache_file_path)
+        except:
+            data = []
+            with open(file_path) as f:
+                for line in f:
+                    data.append(json.loads(line.strip()))
+            data = data[:1000]
+            if os.path.exists("./tokenizer_"+str(vocab_size)):
+                logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(vocab_size))
+                tokenizer = ByteLevelBPETokenizer.from_file("./tokenizer_"+str(vocab_size)+"/vocab.json", "./tokenizer_"+str(vocab_size)+"/merges.txt")
+            else:
+                logger.info("Creating vocabulary to file %s", "./tokenizer_"+str(vocab_size))
+                tokenizer = ByteLevelBPETokenizer(lowercase=True)
+                texts = [" ".join(d["func"].split()) for d in data]
+                tokenizer.train_from_iterator(texts, vocab_size=vocab_size, show_progress=False, special_tokens=["<s>", "<pad>", "</s>", "<unk>"])
+                os.makedirs("./tokenizer_"+str(vocab_size), exist_ok=True)
+                tokenizer.save_model("./tokenizer_"+str(vocab_size))
 
-    if K.image_data_format() == "channels_first":
-        x_train = x_train.reshape(x_train.shape[0], 1, img_rows, img_cols)
-        x_test = x_test.reshape(x_test.shape[0], 1, img_rows, img_cols)
-        input_shape = (1, img_rows, img_cols)
+            logger.info("Creating features to %s", cache_file_path)
+            for d in tqdm(data):
+                code = " ".join(d["func"].split())
+                source_ids = tokenizer.encode(code).ids[:block_size-2]
+                source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
+                padding_length = block_size - len(source_ids)
+                source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
+                self.examples.append((InputFeatures(code, source_ids, d["target"]), convert_examples_to_features(d, teacher_tokenizer)))
+
+            torch.save(self.examples, cache_file_path)
+        
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, i):
+        return torch.tensor(self.examples[i][0].input_ids), torch.tensor(self.examples[i][0].label), torch.tensor(self.examples[i][1].input_ids)
+
+
+def set_seed(seed=42):
+    random.seed(seed)
+    os.environ["PYHTONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+class InputFeatures(object):
+
+    def __init__(self,
+                 input_tokens,
+                 input_ids,
+                 label
+                 ):
+        self.input_tokens = input_tokens
+        self.input_ids = input_ids
+        self.label = label
+
+
+def convert_examples_to_features(data, tokenizer):
+    code = " ".join(data["func"].split())
+    code_tokens = tokenizer.tokenize(code)[:400-2]
+    source_tokens = [tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
+    source_ids = tokenizer.convert_tokens_to_ids(source_tokens)
+    padding_length = 400 - len(source_ids)
+    source_ids += [tokenizer.pad_token_id]*padding_length
+    return InputFeatures(source_tokens, source_ids, data["target"])
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class Roberta(nn.Module):
+    def __init__(self, encoder):
+        super(Roberta, self).__init__()
+        self.encoder = encoder
+        
+    def forward(self, input_ids=None): 
+        logits = self.encoder(input_ids, attention_mask=input_ids.ne(1))[0]
+
+        return logits
+
+
+class biLSTM(nn.Module):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
+        super(biLSTM, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        self.lstm = nn.LSTM(input_size=input_dim,
+                            hidden_size=hidden_dim,
+                            num_layers=n_layers,
+                            batch_first=True, 
+                            bidirectional=True)
+
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+
+    def forward(self, input_ids):
+        embed = self.embedding(input_ids)
+        outputs, (hidden, _) = self.lstm(embed)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        logits = self.fc(hidden)
+        # prob = F.sigmoid(logits)
+        return logits
+
+
+class biGRU(nn.Module):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
+        super(biGRU, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        self.gru = nn.GRU(input_size=input_dim,
+                            hidden_size=hidden_dim,
+                            num_layers=n_layers,
+                            batch_first=True, 
+                            bidirectional=True)
+
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+
+    def forward(self, input_ids):
+        embed = self.embedding(input_ids)
+        _, hidden = self.gru(embed)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        logits = self.fc(hidden)
+        # prob = F.sigmoid(logits)
+        return logits
+
+def loss_func(std_logits, labels, alpha=0.9, temperature=2.0):
+    labels = labels.long()
+
+    loss = F.cross_entropy(std_logits, (1 - labels))
+
+    # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
+
+    return loss
+
+
+def ce_loss_func(std_logits, tea_logits, labels, alpha=0.9, temperature=2.0):
+    labels = labels.long()
+
+    loss = F.cross_entropy(std_logits, (1 - labels))
+
+    ce_loss = F.kl_div(F.log_softmax(std_logits/temperature), F.softmax(tea_logits/temperature), reduction="batchmean") * (temperature**2)
+    # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
+
+    return alpha * loss + (1. - alpha) * ce_loss
+
+def mse_loss_func(std_logits, tea_logits, labels, alpha=0.9, normalized=True):
+    labels = labels.long()
+
+    loss = F.cross_entropy(std_logits, (1 - labels))
+    
+    if normalized:
+        mse_loss = F.mse_loss(F.normalize(std_logits, p=2, dim=1), F.normalize(tea_logits, p=2, dim=1), reduction="sum")
     else:
-        x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 1)
-        x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
-        input_shape = (img_rows, img_cols, 1)
+        mse_loss = F.mse_loss(std_logits, tea_logits, reduction="sum")
+    mse_loss /= std_logits.size(0)
 
-    #x_train = x_train.reshape(60000, 784)
-    #x_test  = x_test.reshape(10000, 784)
-
-    x_train = x_train.astype("float32")
-    x_test = x_test.astype("float32")
-    x_train /= 255
-    x_test /= 255
-
-    #print("x_train shape:", x_train.shape)
-    #print(x_train.shape[0], "train samples")
-    #print(x_test.shape[0], "test samples")
-
-    # convert class vectors to binary class matrices
-    y_train = to_categorical(y_train, nb_classes)
-    y_test = to_categorical(y_test,  nb_classes)
-
-    # convert class vectors to binary class matrices
-    #y_train = keras.utils.to_categorical(y_train, nb_classes)
-    #y_test = keras.utils.to_categorical(y_test, nb_classes)
-
-    return (nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs)
-
-
-def compile_model_mlp(genome, nb_classes, input_shape):
-    """Compile a sequential model.
-
-    Args:
-        network (dict): the parameters of the network
-
-    Returns:
-        a compiled network.
-
-    """
-    # Get our network parameters.
-    nb_layers = genome.geneparam["nb_layers"]
-    nb_neurons = genome.nb_neurons()
-    activation = genome.geneparam["activation"]
-    optimizer = genome.geneparam["optimizer"]
-
-    logging.info("Architecture:%s,%s,%s,%d" %
-                 (str(nb_neurons), activation, optimizer, nb_layers))
-
-    model = Sequential()
-
-    # Add each layer.
-    for i in range(nb_layers):
-
-        # Need input shape for first layer.
-        if i == 0:
-            model.add(
-                Dense(nb_neurons[i], activation=activation, input_shape=input_shape))
-        else:
-            model.add(Dense(nb_neurons[i], activation=activation))
-
-        model.add(Dropout(0.2))  # hard-coded dropout for each layer
-
-    # Output layer.
-    model.add(Dense(nb_classes, activation="softmax"))
-
-    model.compile(loss="categorical_crossentropy",
-                  optimizer=optimizer,
-                  metrics=["accuracy"])
-
-    return model
-
-
-def compile_model_cnn(genome, nb_classes, input_shape):
-    """Compile a sequential model.
-
-    Args:
-        genome (dict): the parameters of the genome
-
-    Returns:
-        a compiled network.
-
-    """
-    # Get our network parameters.
-    nb_layers = genome.geneparam["nb_layers"]
-    nb_neurons = genome.nb_neurons()
-    activation = genome.geneparam["activation"]
-    optimizer = genome.geneparam["optimizer"]
-
-    logging.info("Architecture:%s,%s,%s,%d" %
-                 (str(nb_neurons), activation, optimizer, nb_layers))
-
-    model = Sequential()
-
-    # Add each layer.
-    for i in range(0, nb_layers):
-        # Need input shape for first layer.
-        if i == 0:
-            model.add(Conv2D(nb_neurons[i], kernel_size=(
-                3, 3), activation=activation, padding="same", input_shape=input_shape))
-        else:
-            model.add(Conv2D(nb_neurons[i], kernel_size=(
-                3, 3), activation=activation))
-
-        if i < 2:  # otherwise we hit zero
-            model.add(MaxPooling2D(pool_size=(2, 2)))
-
-        model.add(Dropout(0.2))
-
-    model.add(Flatten())
-    # always use last nb_neurons value for dense layer
-    model.add(Dense(nb_neurons[len(nb_neurons) - 1], activation=activation))
-    model.add(Dropout(0.5))
-    model.add(Dense(nb_classes, activation="softmax"))
-
-    # BAYESIAN CONVOLUTIONAL NEURAL NETWORKS WITH BERNOULLI APPROXIMATE VARIATIONAL INFERENCE
-    # need to read this paper
-
-    model.compile(loss="categorical_crossentropy",
-                  optimizer=optimizer,
-                  metrics=["accuracy"])
-
-    return model
-
-
-class LossHistory(Callback):
-    def on_train_begin(self, logs={}):
-        self.losses = []
-
-    def on_batch_end(self, batch, logs={}):
-        self.losses.append(logs.get("loss"))
-
-
-def train_and_score(genome, dataset):
-    """Train the model, return test loss.
-
-    Args:
-        network (dict): the parameters of the network
-        dataset (str): Dataset to use for training/evaluating
-
-    """
-    logging.info("Getting Keras datasets")
-
-    if dataset == "cifar10_mlp":
-        nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs = get_cifar10_mlp()
-    elif dataset == "cifar10_cnn":
-        nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs = get_cifar10_cnn()
-    elif dataset == "mnist_mlp":
-        nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs = get_mnist_mlp()
-    elif dataset == "mnist_cnn":
-        nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test, epochs = get_mnist_cnn()
-
-    logging.info("Compling Keras model")
-
-    if dataset == "cifar10_mlp":
-        model = compile_model_mlp(genome, nb_classes, input_shape)
-    elif dataset == "cifar10_cnn":
-        model = compile_model_cnn(genome, nb_classes, input_shape)
-    elif dataset == "mnist_mlp":
-        model = compile_model_mlp(genome, nb_classes, input_shape)
-    elif dataset == "mnist_cnn":
-        model = compile_model_cnn(genome, nb_classes, input_shape)
-
-    history = LossHistory()
-
-    model.fit(x_train, y_train,
-              batch_size=batch_size,
-              epochs=epochs,
-              # using early stopping so no real limit - don"t want to waste time on horrible architectures
-              verbose=1,
-              validation_data=(x_test, y_test),
-              # callbacks=[history])
-              callbacks=[early_stopper])
-
-    score = model.evaluate(x_test, y_test, verbose=0)
-
-    print("Test loss:", score[0])
-    print("Test accuracy:", score[1])
-
-    K.clear_session()
-    # we do not care about keeping any of this in memory -
-    # we just need to know the final scores and the architecture
-
-    return score[1]  # 1 is accuracy. 0 is loss.
+    return alpha * loss + (1. - alpha) * mse_loss
