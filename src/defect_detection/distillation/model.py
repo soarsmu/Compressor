@@ -46,7 +46,7 @@ class biGRU(nn.Module):
                             batch_first=True, 
                             bidirectional=True)
 
-        self.fc = nn.GELU(), nn.Linear(hidden_dim * 2, n_labels)
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
     def forward(self, input_ids):
         embed = self.embedding(input_ids)

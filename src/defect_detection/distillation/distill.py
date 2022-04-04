@@ -43,6 +43,8 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
+    logger.info(f'{total_params*4/1e6} MB model size')
+
     # summary(S_model, (1, 400), dtypes=[torch.long], verbose=2,
     # col_width=16,
     # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
@@ -180,7 +182,7 @@ def main():
                         help="Temperature factor in loss fucntion.")
     parser.add_argument("--normalized", default=True, type=bool,
                         help="Whether to normalize loss in mse.")
-    parser.add_argument("--learning_rate", default=2e-5, type=float,
+    parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
