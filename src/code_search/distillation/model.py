@@ -4,16 +4,15 @@ import torch.nn.functional as F
 
 
 class Roberta(nn.Module):
-    def __init__(self, encoder, config, tokenizer):
+    def __init__(self, encoder):
         super(Roberta, self).__init__()
         self.encoder = encoder
-        self.config = config
-        self.tokenizer = tokenizer
 
     def forward(self, code_inputs, nl_inputs):
         bs = code_inputs.shape[0]
         inputs = torch.cat((code_inputs, nl_inputs), 0)
         outputs = self.encoder(inputs, attention_mask=inputs.ne(1))[1]
+
         code_vec = outputs[:bs]
         nl_vec = outputs[bs:]
 
@@ -30,7 +29,8 @@ class biLSTM(nn.Module):
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
                             batch_first=True, 
-                            bidirectional=True)
+                            bidirectional=True,
+                            dropout=0.5)
 
         self.fc = nn.Sequential(nn.GELU(), nn.Linear(hidden_dim * 2, n_labels))
 
@@ -41,6 +41,7 @@ class biLSTM(nn.Module):
         outputs, (hidden, _) = self.lstm(embed)
         hidden = hidden.permute(1, 0, 2)
         hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+
         code_vec = hidden[:bs]
         nl_vec = hidden[bs:]
 
@@ -66,7 +67,7 @@ class biGRU(nn.Module):
                             batch_first=True, 
                             bidirectional=True)
 
-        self.fc = nn.Sequential(nn.GELU(), nn.Linear(hidden_dim * 2, n_labels))
+        self.fc = nn.Sequential(nn.GELU(), nn.Linear(hidden_dim * 2, hidden_dim))
 
     def forward(self, code_inputs, nl_inputs):
         bs = code_inputs.shape[0]
@@ -75,6 +76,8 @@ class biGRU(nn.Module):
         _, hidden = self.gru(embed)
         hidden = hidden.permute(1, 0, 2)
         hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        hidden = self.fc(hidden)
+        # print(hidden.shape)
         code_vec = hidden[:bs]
         nl_vec = hidden[bs:]
 
@@ -90,10 +93,11 @@ class biGRU(nn.Module):
         # return logits
 
 
-def ce_loss_func(std_logits, tea_logits, alpha=0.9, temperature=2.0):
-
+def ce_loss_func(std_logits, tea_logits, alpha=0.9, temperature=5.0):
+    
     loss = F.cross_entropy(std_logits, torch.arange(std_logits.shape[0], device=std_logits.device))
-
+    
+    # print()
     ce_loss = F.kl_div(F.log_softmax(std_logits/temperature), F.softmax(tea_logits/temperature), reduction="batchmean") * (temperature**2)
     # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
 

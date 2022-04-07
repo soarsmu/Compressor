@@ -16,6 +16,8 @@ class Model(nn.Module):
         bs = code_inputs.shape[0]
         inputs = torch.cat((code_inputs, nl_inputs), 0)
         outputs = self.encoder(inputs, attention_mask=inputs.ne(1))[1]
+        
+        
         code_vec = outputs[:bs]
         nl_vec = outputs[bs:]
 

@@ -4,7 +4,8 @@ import logging
 import argparse
 import warnings
 import numpy as np
-
+import torch.nn.functional as F
+os.environ['TRANSFORMERS_OFFLINE'] = 'yes'
 from tqdm import tqdm
 from utils import set_seed, TextDataset
 from model import Roberta, biLSTM, biGRU, ce_loss_func, mse_loss_func
@@ -20,6 +21,8 @@ def teacher_predict(model, args, loader):
     model.eval()
     model.load_state_dict(torch.load("../checkpoint/model.bin"))
     model.to(args.device)
+    code_vecs = []
+    nl_vecs = []
     logits = []
     bar = tqdm(loader, total=len(loader))
     with torch.no_grad():
@@ -27,19 +30,40 @@ def teacher_predict(model, args, loader):
             code_inputs = batch[2].to(args.device)    
             nl_inputs = batch[3].to(args.device)
             logit, code_vec, nl_vec = model(code_inputs, nl_inputs)
+            code_vecs.append(code_vec.cpu().numpy())
+            nl_vecs.append(nl_vec.cpu().numpy())
             logits.append(logit)
+    
+    code_vecs = np.concatenate(code_vecs, 0)
+    nl_vecs = np.concatenate(nl_vecs, 0)
+
+    scores = np.matmul(nl_vecs, code_vecs.T)
+    ranks = []
+
+    for i in range(len(scores)):
+        score = scores[i, i]
+        rank = 1
+        for j in range(len(scores)):
+            if i != j and scores[i, j] >= score:
+                rank += 1
+        ranks.append(1/rank)    
+
+    result = {
+        "eval_mrr": float(np.mean(ranks))
+    }
+    print(result)
     return logits
 
 
 def student_train(T_model, S_model, args, train_loader, test_loader):
-    try:
-        logger.info("Loading Teacher Model's Logits from {}".format("./logits/train_logits_"+ str(args.vocab_size) + ".bin"))
-        t_train_logits = torch.load("./logits/train_logits_"+ str(args.vocab_size) + ".bin")
-    except:
-        logger.info("Creating Teacher Model's Logits.")
-        t_train_logits = teacher_predict(T_model, args, train_loader)
-        os.makedirs("./logits", exist_ok=True)
-        torch.save(t_train_logits, "./logits/train_logits_"+ str(args.vocab_size) + ".bin")
+    # try:
+    #     logger.info("Loading Teacher Model's Logits from {}".format("./logits/train_logits_"+ str(args.vocab_size) + ".bin"))
+    #     t_train_logits = torch.load("./logits/train_logits_"+ str(args.vocab_size) + ".bin")
+    # except:
+    #     logger.info("Creating Teacher Model's Logits.")
+    #     t_train_logits = teacher_predict(T_model, args, train_loader)
+    #     os.makedirs("./logits", exist_ok=True)
+    #     torch.save(t_train_logits, "./logits/train_logits_"+ str(args.vocab_size) + ".bin")
 
     total_params = sum(p.numel() for p in S_model.parameters())
     logger.info(f'{total_params:,} total parameters.')
@@ -71,10 +95,12 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
             texts_2 = batch[1].to(args.device)
 
             s_logits, code_vec, nl_vec = S_model(texts_1, texts_2)
-            if args.loss_func == "ce":
-                loss = ce_loss_func(s_logits, t_train_logits[step], args.alpha, args.temperature)
-            elif args.loss_func == "mse":
-                loss = mse_loss_func(s_logits, t_train_logits[step], args.alpha, args.normalized)
+
+            loss = F.cross_entropy(s_logits, torch.arange(s_logits.shape[0], device=s_logits.device))
+            # if args.loss_func == "ce":
+            #     loss = ce_loss_func(s_logits, t_train_logits[step], args.alpha, args.temperature)
+            # elif args.loss_func == "mse":
+            #     loss = mse_loss_func(s_logits, t_train_logits[step], args.alpha, args.normalized)
             loss.backward()
             train_loss += loss.item()
             tr_num += 1
@@ -104,7 +130,8 @@ def student_evaluate(args, S_model, test_loader):
     S_model.eval()
     code_vecs = [] 
     nl_vecs = []
-    
+    loss = 0
+    tr_num = 0
     with torch.no_grad():
         bar = tqdm(test_loader, total=len(test_loader))
         bar.set_description("Evaluation")
@@ -112,27 +139,30 @@ def student_evaluate(args, S_model, test_loader):
             code_inputs = batch[0].to(args.device)    
             nl_inputs = batch[1].to(args.device)
             with torch.no_grad():
-                _, code_vec, nl_vec = S_model(code_inputs, nl_inputs)
+                std_logits, code_vec, nl_vec = S_model(code_inputs, nl_inputs)
                 code_vecs.append(code_vec.cpu().numpy())
                 nl_vecs.append(nl_vec.cpu().numpy())
-
+                
+                loss += F.cross_entropy(std_logits, torch.arange(std_logits.shape[0], device=std_logits.device))
+                tr_num += 1
     code_vecs = np.concatenate(code_vecs, 0)
     nl_vecs = np.concatenate(nl_vecs, 0)
-
+ 
     scores = np.matmul(nl_vecs, code_vecs.T)
     ranks = []
-    for i in range(len(scores)):
+
+    for i in tqdm(range(len(scores)), desc="MRR Cal"):
         score = scores[i, i]
         rank = 1
         for j in range(len(scores)):
             if i != j and scores[i, j] >= score:
                 rank += 1
-        ranks.append(1/rank)    
-       
+        ranks.append(1/rank)
+
     result = {
         "eval_mrr": float(np.mean(ranks))
     }
-
+    
     return result
 
 
@@ -177,7 +207,7 @@ def main():
                         help="Temperature factor in loss fucntion.")
     parser.add_argument("--normalized", default=True, type=bool,
                         help="Whether to normalize loss in mse.")
-    parser.add_argument("--learning_rate", default=2e-5, type=float,
+    parser.add_argument("--learning_rate", default=1e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
@@ -214,8 +244,8 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    teacher_model = Roberta(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
-    
+    teacher_model = Roberta(RobertaModel.from_pretrained(args.model_name, config=config))
+
     n_labels = 2
 
     if args.std_model == "biLSTM":
@@ -226,11 +256,11 @@ def main():
         std_config = RobertaConfig.from_pretrained(args.model_name)
         std_config.num_labels = n_labels
         std_config.hidden_size = args.hidden_dim
-        # std_config.max_position_embeddings = args.hidden_dim + 2
+        std_config.max_position_embeddings = args.block_size + 2
         std_config.vocab_size = args.vocab_size
         std_config.num_attention_heads = 8
         std_config.num_hidden_layers = args.n_layers
-        student_model = Roberta(RobertaModel(std_config), std_config, args)
+        student_model = Roberta(RobertaModel(std_config))
 
     if args.do_train:
         train_dataset = TextDataset(tokenizer, args, args.train_data_file)

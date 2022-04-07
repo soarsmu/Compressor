@@ -229,7 +229,7 @@ def train(args, train_dataset, model, tokenizer):
                         logger.info("  Best mrr:%s",round(best_acc,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = 'checkpoint'
+                        checkpoint_prefix = 'checkpoint_new'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))                        
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
