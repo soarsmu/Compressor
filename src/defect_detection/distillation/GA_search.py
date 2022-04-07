@@ -216,6 +216,9 @@ def main():
 
     args = parser.parse_args()
     search_space = {
+        # TODO: resize the search space
+        # TODO: local search then global search?
+        # TODO: each search space is continuous
         "vocab_size": [*range(1000, 51000, 1000)],
         "input_dim": [*range(1, 769)],
         "hidden_dim": [*range(1, 769)],
