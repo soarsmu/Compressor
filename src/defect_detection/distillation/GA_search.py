@@ -9,6 +9,7 @@ import argparse
 
 from tqdm import tqdm
 from distill import student_train
+from utils import DistilledDataset
 from model import biLSTM, biGRU, Roberta, ce_loss_func, mse_loss_func
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
@@ -81,8 +82,18 @@ class GA_search():
             count += 1
         
         logger.info(self.population)
+    
+    # Size-aware Hyperparameter Search
+    # Find a best student
+    # Analyse the student
+    # TODO: RQ1: evaluate accuracy? efficience?
+    # RQ2: Robustness
+    # RQ3: 
 
     def fitness(self):
+        # TODO: how to manage the contiuous value
+        # TODO: two stage search
+        
         config = RobertaConfig.from_pretrained("microsoft/codebert-base")
         config.num_labels = 2
         
@@ -97,33 +108,32 @@ class GA_search():
     
         n_labels = 2
 
-        if args.std_model == "biLSTM":
-            student_model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-        elif args.std_model == "biGRU":
-            student_model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-        elif args.std_model == "Roberta":
+        if self.args.std_model == "biLSTM":
+            student_model = biLSTM()
+        elif self.args.std_model == "biGRU":
+            student_model = biGRU()
+        elif self.args.std_model == "Roberta":
             std_config = RobertaConfig.from_pretrained("microsoft/codebert-base")
             std_config.num_labels = n_labels
-            std_config.hidden_size = args.hidden_dim
-            std_config.max_position_embeddings = args.block_size + 2
-            std_config.vocab_size = args.vocab_size
-            std_config.num_attention_heads = 8
-            std_config.num_hidden_layers = args.n_layers
+            std_config.hidden_size = self.args.hidden_dim
+            std_config.max_position_embeddings = self.args.block_size + 2
+            std_config.vocab_size = self.args.vocab_size
+            std_config.num_hidden_layers = self.args.n_layers
             student_model = Roberta(RobertaForSequenceClassification(std_config))
 
-        if args.do_train:
+        if self.args.do_train:
             train_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.train_data_file)
             train_sampler = RandomSampler(train_dataset)
             train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
         
-        eval_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.eval_data_file)
-        eval_sampler = SequentialSampler(eval_dataset)
-        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
+        # eval_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.eval_data_file)
+        # eval_sampler = SequentialSampler(eval_dataset)
+        # eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
         
-        student_model.to(args.device)
+        # student_model.to(args.device)
 
-        if args.do_train:
-            student_train(teacher_model, student_model, args, train_dataloader, eval_dataloader)
+        # if args.do_train:
+        #     student_train(teacher_model, student_model, args, train_dataloader, eval_dataloader)
         return self.fitness
 
     def crossover_and_mutation(self, parents):
