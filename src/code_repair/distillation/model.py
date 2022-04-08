@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
@@ -9,7 +10,8 @@ class RNNModel(nn.Module):
         self.ntoken = ntoken
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
-        self.rnn = nn.LSTM(ninp, nhid, nlayers, dropout=dropout, batch_first=True)
+        self.rnn = nn.LSTM(ninp, nhid, nlayers,
+                           dropout=dropout, batch_first=True)
         self.decoder = nn.Linear(nhid, ntoken)
         self.criterion = nn.CrossEntropyLoss()
 
@@ -36,7 +38,8 @@ class RNNModel(nn.Module):
         if labels is not None:
             shift_logits = output[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
-            loss = self.criterion(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            loss = self.criterion(
+                shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             return loss, output, hidden
         else:
             return output, hidden
@@ -49,7 +52,6 @@ class RNNModel(nn.Module):
         else:
             return weight.new_zeros(self.nlayers, bsz, self.nhid)
 
-    
 
 class Seq2Seq(nn.Module):
 
