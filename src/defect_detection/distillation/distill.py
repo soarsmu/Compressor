@@ -208,18 +208,18 @@ def main():
 
     set_seed(args.seed)
 
-    args.model_name = "microsoft/codebert-base"
-    config = RobertaConfig.from_pretrained(args.model_name)
+    model_name = "microsoft/codebert-base"
+    config = RobertaConfig.from_pretrained(model_name)
     config.num_labels = 2
     
-    tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
+    tokenizer = RobertaTokenizer.from_pretrained(model_name)
     tokenizer.do_lower_case = True
 
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    teacher_model = Roberta(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
+    teacher_model = Roberta(RobertaForSequenceClassification.from_pretrained(model_name, config=config))
    
     n_labels = 2
 
@@ -228,7 +228,7 @@ def main():
     elif args.std_model == "biGRU":
         student_model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.std_model == "Roberta":
-        std_config = RobertaConfig.from_pretrained(args.model_name)
+        std_config = RobertaConfig.from_pretrained(model_name)
         std_config.num_labels = n_labels
         std_config.hidden_size = args.hidden_dim
         std_config.max_position_embeddings = args.block_size + 2
