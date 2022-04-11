@@ -12,30 +12,14 @@ do
   do
     MODEL_DIR=./checkpoint/biGRU/$loss/3/$alpha
     mkdir -p $MODEL_DIR
-    # CUDA_VISIBLE_DEVICES=0 python distill.py \
-    #     --do_train \
-    #     --train_data_file=../../../data/defect_detection/train.jsonl \
-    #     --eval_data_file=../../../data/defect_detection/valid.jsonl \
-    #     --model_dir $MODEL_DIR \
-    #     --std_model biGRU \
-    #     --loss_func $loss \
-    #     --alpha $alpha \
-    #     --input_dim 660 \
-    #     --hidden_dim 82 \
-    #     --n_layers 6 \
-    #     --vocab_size 1000 \
-    #     --block_size 400 \
-    #     --train_batch_size 16 \
-    #     --eval_batch_size 64 \
-    #     --epochs 15 \
-    #     --seed 123456 2>&1| tee $MODEL_DIR/train.log
-
-    CUDA_VISIBLE_DEVICES=1 python distill.py \
-        --do_eval \
+    CUDA_VISIBLE_DEVICES=0 python data.py \
+        --do_train \
         --train_data_file=../../../data/defect_detection/train.jsonl \
-        --eval_data_file=../../../data/defect_detection/test.jsonl \
+        --eval_data_file=../../../data/defect_detection/valid.jsonl \
         --model_dir $MODEL_DIR \
         --std_model biGRU \
+        --loss_func $loss \
+        --alpha $alpha \
         --input_dim 660 \
         --hidden_dim 82 \
         --n_layers 6 \
@@ -43,8 +27,24 @@ do
         --block_size 400 \
         --train_batch_size 16 \
         --eval_batch_size 64 \
-        --choice best \
-        --seed 123456 2>&1| tee $MODEL_DIR/eval.log
+        --epochs 15 \
+        --seed 123456 2>&1| tee $MODEL_DIR/train.log
+
+    # CUDA_VISIBLE_DEVICES=1 python distill.py \
+    #     --do_eval \
+    #     --train_data_file=../../../data/defect_detection/train.jsonl \
+    #     --eval_data_file=../../../data/defect_detection/test.jsonl \
+    #     --model_dir $MODEL_DIR \
+    #     --std_model biGRU \
+    #     --input_dim 660 \
+    #     --hidden_dim 82 \
+    #     --n_layers 6 \
+    #     --vocab_size 1000 \
+    #     --block_size 400 \
+    #     --train_batch_size 16 \
+    #     --eval_batch_size 64 \
+    #     --choice best \
+    #     --seed 123456 2>&1| tee $MODEL_DIR/eval.log
   done
 done
 
