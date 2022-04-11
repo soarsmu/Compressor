@@ -1,4 +1,6 @@
 import os
+
+import pickle
 import torch
 import logging
 import argparse
@@ -8,6 +10,7 @@ import numpy as np
 from tqdm import tqdm
 from model import Model
 from utils import set_seed, TextDataset
+from sklearn.cluster import KMeans
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
@@ -111,7 +114,7 @@ def train(args, model, tokenizer):
                     if results["eval_acc"] >= best_acc:
                         best_acc = results["eval_acc"]
 
-                        checkpoint_prefix = 'checkpoint'
+                        checkpoint_prefix = 'checkpoint_new'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
@@ -148,9 +151,20 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         label = batch[1].to(args.device) 
         with torch.no_grad():
             logit = model(inputs)
+            # logit = logit.cpu().numpy()
+            # for i in logit:
+            #     logits.append(abs(i[0]-i[1]))
             logits.append(logit.cpu().numpy())
         labels.append(label.cpu().numpy())
+
     logits = np.concatenate(logits, 0)
+    # indexs = np.argsort(logits)
+    # selected = indexs[:378]
+    # f = open("./list.bin", "wb")
+    # pickle.dump(selected, f)
+    # f.close()
+    # # print(logits.index(centers[0]))
+    # exit()
     labels = np.concatenate(labels, 0)
 
     preds = logits[:, 0] > 0.5
@@ -218,7 +232,11 @@ def main():
     parser.add_argument('--epoch', type=int, default=42,
                         help="random seed for initialization")
 
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s",
+                        datefmt="%m/%d/%Y %H:%M:%S",
+                        level=logging.INFO)
     args = parser.parse_args()
+    logger.info(args)
 
     args.device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -227,9 +245,6 @@ def main():
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
 
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-                        datefmt="%m/%d/%Y %H:%M:%S",
-                        level=logging.INFO)
     logger.info("Device: %s, n_gpu: %s", args.device, args.n_gpu)
 
     set_seed(args.seed)
@@ -253,7 +268,7 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
-        checkpoint_prefix = "checkpoint/model.bin"
+        checkpoint_prefix = "checkpoint_new/model.bin"
         output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)

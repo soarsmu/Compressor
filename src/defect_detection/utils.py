@@ -1,3 +1,4 @@
+import pickle
 import os
 import json
 import torch
@@ -28,7 +29,14 @@ class TextDataset(Dataset):
             with open(file_path) as f:
                 for line in f:
                     data.append(json.loads(line.strip()))
-                    
+            if postfix == "train":
+                f_l = open("./list.bin", "rb")
+                indexs = pickle.load(f_l)
+                s = []
+                for i in indexs:
+                    s.append(data[i])
+                data = s
+            # data = random.sample(data, 378)
             for d in tqdm(data):
                 self.examples.append(convert_examples_to_features(d, tokenizer, args))
         torch.save(self.examples, cache_file_path)

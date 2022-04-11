@@ -4,7 +4,7 @@ CUDA_VISIBLE_DEVICES=0,1 python main.py \
     --do_train \
     --train_data_file=../../data/defect_detection/train.jsonl \
     --eval_data_file=../../data/defect_detection/valid.jsonl \
-    --epoch 5 \
+    --epoch 50 \
     --block_size 400 \
     --train_batch_size 32 \
     --eval_batch_size 64 \
@@ -16,7 +16,7 @@ CUDA_VISIBLE_DEVICES=0,1 python main.py \
 CUDA_VISIBLE_DEVICES=2 python main.py \
     --do_eval \
     --train_data_file=../../data/defect_detection/train.jsonl \
-    --eval_data_file=../../data/defect_detection/test.jsonl \
+    --eval_data_file=../../data/defect_detection/train.jsonl \
     --block_size 400 \
     --eval_batch_size 64 \
     --seed 123456 2>&1| tee logs/eval.log
