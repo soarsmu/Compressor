@@ -143,94 +143,61 @@ def set_seed(args):
 def main():
     parser = argparse.ArgumentParser()
 
-    # Required parameters
-    parser.add_argument("--model_type", default=None, type=str, required=True,
-                        help="Model type: e.g. roberta")
-    parser.add_argument("--model_name_or_path", default=None, type=str, required=True,
-                        help="Path to pre-trained model: e.g. roberta-base")
-    parser.add_argument("--tokenizer_name", default="", required=True,
-                        help="Pretrained tokenizer name or path if not the same as model_name")
-    parser.add_argument("--output_dir", default=None, type=str, required=True,
+    parser.add_argument("--train_data_file", default=None, type=str, required=True,
+                        help="The input training data file (a text file).")
+    parser.add_argument("--output_dir", default="./", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
-    parser.add_argument("--load_model_path", default=None, type=str,
-                        help="Path to trained model: Should contain the .bin files")
-    # Other parameters
-    parser.add_argument("--train_filename", default=None, type=str,
-                        help="The train filenames (source and target files).")
-    parser.add_argument("--dev_filename", default=None, type=str,
-                        help="The dev filename. (source and target files).")
-    parser.add_argument("--test_filename", default=None, type=str,
-                        help="The test filename. (source and target files).")
-
-    parser.add_argument("--config_name", default="", type=str,
-                        help="Pretrained config name or path if not the same as model_name")
-
-    parser.add_argument("--max_source_length", default=64, type=int,
-                        help="The maximum total source sequence length after tokenization. Sequences longer "
-                             "than this will be truncated, sequences shorter will be padded.")
-    parser.add_argument("--max_target_length", default=32, type=int,
-                        help="The maximum total target sequence length after tokenization. Sequences longer "
-                             "than this will be truncated, sequences shorter will be padded.")
-
+    parser.add_argument("--eval_data_file", default=None, type=str,
+                        help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
+    parser.add_argument("--block_size", default=-1, type=int,
+                        help="Optional input sequence length after tokenization.")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_lower_case", action='store_true',
-                        help="Set this flag if you are using an uncased model.")
-    parser.add_argument("--no_cuda", action='store_true',
-                        help="Avoid using CUDA when available")
+    parser.add_argument("--evaluate_during_training", action='store_true',
+                        help="Run evaluation during training at each logging step.")
 
-    parser.add_argument("--train_batch_size", default=8, type=int,
+    parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
-    parser.add_argument("--eval_batch_size", default=8, type=int,
+    parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
-    parser.add_argument("--beam_size", default=10, type=int,
-                        help="beam size for beam search")
-    parser.add_argument("--weight_decay", default=0.0, type=float,
-                        help="Weight deay if we apply some.")
     parser.add_argument("--adam_epsilon", default=1e-8, type=float,
                         help="Epsilon for Adam optimizer.")
     parser.add_argument("--max_grad_norm", default=1.0, type=float,
                         help="Max gradient norm.")
-    parser.add_argument("--num_train_epochs", default=3.0, type=float,
-                        help="Total number of training epochs to perform.")
-    parser.add_argument("--max_steps", default=-1, type=int,
-                        help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
-    parser.add_argument("--eval_steps", default=-1, type=int,
-                        help="")
-    parser.add_argument("--train_steps", default=-1, type=int,
-                        help="")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument("--local_rank", type=int, default=-1,
-                        help="For distributed training: local_rank")
+    parser.add_argument('--logging_steps', type=int, default=50,
+                        help="Log every X updates steps.")
+    parser.add_argument('--save_steps', type=int, default=50,
+                        help="Save checkpoint every X updates steps.")
+    parser.add_argument("--no_cuda", action='store_true',
+                        help="Avoid using CUDA when available")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
-    # print arguments
+    parser.add_argument('--epoch', type=int, default=42,
+                        help="random seed for initialization")
+
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s",
+                        datefmt="%m/%d/%Y %H:%M:%S",
+                        level=logging.INFO)
     args = parser.parse_args()
     logger.info(args)
 
-    # Setup CUDA, GPU & distributed training
-    if args.local_rank == -1 or args.no_cuda:
-        device = torch.device(
-            "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-        args.n_gpu = torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
-        torch.cuda.set_device(args.local_rank)
-        device = torch.device("cuda", args.local_rank)
-        torch.distributed.init_process_group(backend='nccl')
-        args.n_gpu = 1
-    logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s",
-                   args.local_rank, device, args.n_gpu, bool(args.local_rank != -1))
-    args.device = device
-    # Set seed
+    args.device = torch.device(
+        "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    args.n_gpu = torch.cuda.device_count()
+
+    args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
+    args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
+
+    logger.info("Device: %s, n_gpu: %s", args.device, args.n_gpu)
+
     set_seed(args)
     # make dir if output_dir not exist
     if os.path.exists(args.output_dir) is False:
@@ -253,7 +220,7 @@ def main():
         logger.info("reload model from {}".format(args.load_model_path))
         model.load_state_dict(torch.load(args.load_model_path))
 
-    model.to(device)
+    model.to(args.device)
 
     if args.n_gpu > 1:
         # multi-gpu training
@@ -310,7 +277,7 @@ def main():
         eval_flag = True
         for step in bar:
             batch = next(train_dataloader)
-            batch = tuple(t.to(device) for t in batch)
+            batch = tuple(t.to(args.device) for t in batch)
             source_ids, source_mask, target_ids, target_mask = batch
             loss, _, _ = model(source_ids=source_ids, source_mask=source_mask,
                                target_ids=target_ids, target_mask=target_mask)
@@ -371,7 +338,7 @@ def main():
                 model.eval()
                 eval_loss, tokens_num = 0, 0
                 for batch in eval_dataloader:
-                    batch = tuple(t.to(device) for t in batch)
+                    batch = tuple(t.to(args.device) for t in batch)
                     source_ids, source_mask, target_ids, target_mask = batch
 
                     with torch.no_grad():
@@ -435,7 +402,7 @@ def main():
                 model.eval()
                 p = []
                 for batch in eval_dataloader:
-                    batch = tuple(t.to(device) for t in batch)
+                    batch = tuple(t.to(args.device) for t in batch)
                     source_ids, source_mask = batch
                     with torch.no_grad():
                         preds = model(source_ids=source_ids,
@@ -503,7 +470,7 @@ def main():
             model.eval()
             p = []
             for batch in tqdm(eval_dataloader, total=len(eval_dataloader)):
-                batch = tuple(t.to(device) for t in batch)
+                batch = tuple(t.to(args.device) for t in batch)
                 source_ids, source_mask = batch
                 with torch.no_grad():
                     preds = model(source_ids=source_ids,
@@ -525,8 +492,7 @@ def main():
                     f.write(ref+'\n')
                     f1.write(gold.target+'\n')
                     accs.append(ref == gold.target)
-            dev_bleu = round(_bleu(os.path.join(args.output_dir, "test_{}.gold".format(str(idx))).format(file),
-                                   os.path.join(args.output_dir, "test_{}.output".format(str(idx))).format(file)), 2)
+            dev_bleu = round(_bleu(os.path.join(args.output_dir, "test_{}.gold".format(str(idx))).format(file), os.path.join(args.output_dir, "test_{}.output".format(str(idx))).format(file)), 2)
             logger.info("  %s = %s " % ("bleu-4", str(dev_bleu)))
             logger.info("  %s = %s " %
                         ("xMatch", str(round(np.mean(accs)*100, 4))))
