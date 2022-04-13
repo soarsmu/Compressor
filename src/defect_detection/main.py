@@ -1,6 +1,4 @@
 import os
-
-import pickle
 import torch
 import logging
 import argparse
@@ -10,7 +8,6 @@ import numpy as np
 from tqdm import tqdm
 from model import Model
 from utils import set_seed, TextDataset
-from sklearn.cluster import KMeans
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
@@ -20,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 def train(args, model, tokenizer):
-
     train_dataset = TextDataset(tokenizer, args, args.train_data_file)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
@@ -151,20 +147,10 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         label = batch[1].to(args.device) 
         with torch.no_grad():
             logit = model(inputs)
-            # logit = logit.cpu().numpy()
-            # for i in logit:
-            #     logits.append(abs(i[0]-i[1]))
             logits.append(logit.cpu().numpy())
         labels.append(label.cpu().numpy())
 
     logits = np.concatenate(logits, 0)
-    # indexs = np.argsort(logits)
-    # selected = indexs[:378]
-    # f = open("./list.bin", "wb")
-    # pickle.dump(selected, f)
-    # f.close()
-    # # print(logits.index(centers[0]))
-    # exit()
     labels = np.concatenate(labels, 0)
 
     preds = logits[:, 0] > 0.5
