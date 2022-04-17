@@ -1,7 +1,6 @@
 import os
 import json
 import torch
-import optuna
 import random
 import logging
 import numpy as np
@@ -48,8 +47,8 @@ class TextDataset(Dataset):
                         label = 1
                     data.append((url1, url2, label))
 
-            # if "test" not in postfix:
-            data = random.sample(data, int(len(data)*0.01))
+            if "test" not in postfix:
+                data = random.sample(data, int(len(data)*0.1))
 
             if os.path.exists("./tokenizer_"+str(args.vocab_size)):
                 logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(args.vocab_size))

@@ -82,13 +82,6 @@ class GA_search():
             count += 1
         
         logger.info(self.population)
-    
-    # Size-aware Hyperparameter Search
-    # Find a best student
-    # Analyse the student
-    # TODO: RQ1: evaluate accuracy? efficience?
-    # RQ2: Robustness
-    # RQ3: 
 
     def fitness(self):
         # TODO: how to manage the contiuous value

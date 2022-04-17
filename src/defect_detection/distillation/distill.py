@@ -7,7 +7,6 @@ import numpy as np
 import torch.nn.functional as F
 
 from tqdm import tqdm
-from torchinfo import summary
 from utils import set_seed, DistilledDataset
 from model import biLSTM, biGRU, Roberta, ce_loss_func, mse_loss_func
 from sklearn.metrics import recall_score, precision_score, f1_score
@@ -45,18 +44,12 @@ def student_train(T_model, S_model, args, train_loader, test_loader):
     logger.info(f'{total_params:,} total parameters.')
     logger.info(f'{total_params*4/1e6} MB model size')
 
-    # summary(S_model, (1, 400), dtypes=[torch.long], verbose=2,
-    # col_width=16,
-    # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
-    # row_settings=["var_names"],)
-    # exit()
     num_steps = len(train_loader) * args.epochs
     
     no_decay = ['bias', 'LayerNorm.weight']
 
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in S_model.named_parameters(
-        ) if not any(nd in n for nd in no_decay)]}
+        {'params': [p for n, p in S_model.named_parameters() if not any(nd in n for nd in no_decay)]}
     ]
 
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)

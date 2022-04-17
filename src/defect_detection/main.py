@@ -218,9 +218,7 @@ def main():
     parser.add_argument('--epoch', type=int, default=42,
                         help="random seed for initialization")
 
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s",
-                        datefmt="%m/%d/%Y %H:%M:%S",
-                        level=logging.INFO)
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = parser.parse_args()
     logger.info(args)
 
@@ -254,7 +252,7 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
-        checkpoint_prefix = "checkpoint_new/model.bin"
+        checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
