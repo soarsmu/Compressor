@@ -6,13 +6,15 @@ import random
 import logging
 import hashlib
 import argparse
+import numpy as np
 
 from tqdm import tqdm
-from distill import student_train
-from utils import DistilledDataset
-from model import biLSTM, biGRU, Roberta, ce_loss_func, mse_loss_func
+from utils import GATextDataset, TextDataset
+
+from predefined.models import biLSTM, biGRU, CodeBERT
+from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
-from transformers import RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -34,13 +36,13 @@ class Genome(object):
             self.update_hash()
     
     def update_hash(self):
-        gene_string = str(self.gene_param["vocab_size"]) + \
+        gene_string = str(self.gene_param["model_arch"])+ \
+                        str(self.gene_param["encoding"]) + \
+                        str(self.gene_param["vocab_size"]) + \
                         str(self.gene_param["input_dim"]) + \
                         str(self.gene_param["hidden_dim"]) + \
                         str(self.gene_param["n_layers"]) + \
-                        str(self.gene_param["alpha"]) + \
-                        str(self.gene_param["lr"]) + \
-                        str(self.gene_param["temperature"])
+                        str(self.gene_param["lr"])
         self.hash = hashlib.md5(gene_string.encode("UTF-8")).hexdigest()
 
     def mutation(self, search_space):
@@ -69,7 +71,7 @@ class GA_search():
         count = 0
 
         while count < self.args.population_size:
-            gene_param = []
+            gene_param = {}
             for key in self.search_space:
                 gene_param[key] = random.choice(self.search_space[key])
             new_genome = Genome(gene_param)
@@ -81,53 +83,70 @@ class GA_search():
             self.population.append(new_genome)
             count += 1
         
-        logger.info(self.population)
-
-    def fitness(self):
-        # TODO: how to manage the contiuous value
-        # TODO: two stage search
-        
-        config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-        config.num_labels = 2
-        
-        tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
-        tokenizer.do_lower_case = True
-
-        if self.args.block_size <= 0:
-            self.args.block_size = tokenizer.max_len_single_sentence
-        self.args.block_size = min(self.args.block_size, tokenizer.max_len_single_sentence)
-
-        teacher_model = Roberta(RobertaForSequenceClassification.from_pretrained("microsoft/codebert-base", config=config))
+        # logger.info(self.population)
     
+    def fitness(self, genome):
+        try:
+            teacher_preds = np.load("teacher_preds.npy")
+        except:
+            config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+            config.num_labels = 2
+            
+            tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
+            tokenizer.do_lower_case = True
+
+            if self.args.block_size <= 0:
+                self.args.block_size = tokenizer.max_len_single_sentence
+            self.args.block_size = min(self.args.block_size, tokenizer.max_len_single_sentence)
+
+            teacher_model = CodeBERT(RobertaForSequenceClassification.from_pretrained("microsoft/codebert-base", config=config))
+            
+            eval_dataset = TextDataset(tokenizer, self.args, self.args.eval_data_file)
+            eval_sampler = SequentialSampler(eval_dataset)
+            eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
+
+            teacher_model.eval()
+            teacher_model.load_state_dict(torch.load("../checkpoint/model.bin"))
+            teacher_model.to("cuda")
+            teacher_preds = []
+            bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+            with torch.no_grad():
+                for batch in bar:
+                    inputs = batch[0].to("cuda")
+                    preds = teacher_model(inputs)
+                    teacher_preds.append(preds.cpu().numpy())
+            teacher_preds = np.concatenate(teacher_preds, 0)
+            teacher_preds = teacher_preds[:, 0] > 0.5
+            np.save("teacher_preds", teacher_preds)
+
+        model_arch = genome.gene_param["model_arch"]
+        encoding =  genome.gene_param["encoding"]
+        vocab_size = genome.gene_param["vocab_size"]
+        input_dim = genome.gene_param["input_dim"]
+        hidden_dim = genome.gene_param["hidden_dim"]
+        n_layers = genome.gene_param["n_layers"]
+        lr = genome.gene_param["lr"]
         n_labels = 2
 
-        if self.args.std_model == "biLSTM":
-            student_model = biLSTM()
-        elif self.args.std_model == "biGRU":
-            student_model = biGRU()
-        elif self.args.std_model == "Roberta":
-            std_config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-            std_config.num_labels = n_labels
-            std_config.hidden_size = self.args.hidden_dim
-            std_config.max_position_embeddings = self.args.block_size + 2
-            std_config.vocab_size = self.args.vocab_size
-            std_config.num_hidden_layers = self.args.n_layers
-            student_model = Roberta(RobertaForSequenceClassification(std_config))
+        if model_arch == "biLSTM":
+            model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        elif model_arch == "biGRU":
+            model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
 
-        if self.args.do_train:
-            train_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.train_data_file)
-            train_sampler = RandomSampler(train_dataset)
-            train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
-        
-        # eval_dataset = DistilledDataset(args, tokenizer, args.vocab_size, args.eval_data_file)
-        # eval_sampler = SequentialSampler(eval_dataset)
-        # eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
-        
-        # student_model.to(args.device)
+        train_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.train_data_file, logger)
+        train_sampler = RandomSampler(train_dataset)
+        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size)
 
-        # if args.do_train:
-        #     student_train(teacher_model, student_model, args, train_dataloader, eval_dataloader)
-        return self.fitness
+        eval_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.eval_data_file, logger)
+        eval_sampler = SequentialSampler(eval_dataset)
+        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
+
+        model.to("cuda")
+        agreements = train(model, lr, train_dataloader, eval_dataloader, teacher_preds)
+        total_params = sum(p.numel() for p in model.parameters())
+        genome.fitness = agreements / (total_params*4/1e6)
+
+        logger.info(genome.gene_param, genome.fitness)
 
     def crossover_and_mutation(self, parents):
         children = []
@@ -170,7 +189,6 @@ class GA_search():
         return children
 
     def generation(self):
- 
         graded_genome = [(self.fitness(genome), genome) for genome in self.population]
         graded_genome = [x[1] for x in sorted(graded_genome, key=lambda x: x[0], reverse=True)]
         retain_length = int(len(graded_genome) * self.retain_chance)
@@ -190,6 +208,77 @@ class GA_search():
         new_generation.extend(children)
         self.population = new_generation
 
+def train(model, lr, train_loader, eval_loader, teacher_preds):
+    num_steps = len(train_loader) * 10
+    no_decay = ['bias', 'LayerNorm.weight']
+
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)]}
+    ]
+
+    optimizer = AdamW(optimizer_grouped_parameters, lr=lr, eps=1e-8)
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=num_steps*0.1,
+                                                num_training_steps=num_steps)
+    dev_best_acc = 0
+
+    for epoch in range(10):
+        model.train()
+        tr_num = 0
+        train_loss = 0
+
+        logger.info('Epoch [{}/{}]'.format(epoch + 1, 10))
+        bar = tqdm(train_loader, total=len(train_loader))
+        bar.set_description("Train")
+        for step, batch in enumerate(bar):
+            texts = batch[0].to("cuda")    
+            labels = batch[1].to("cuda")
+            loss, _ = model(texts, labels)
+
+            loss.backward()
+            train_loss += loss.item()
+            tr_num += 1
+
+            scheduler.step()
+            optimizer.step()
+            optimizer.zero_grad()
+
+        dev_results = evaluate(model, eval_loader, teacher_preds)
+        dev_acc = dev_results["agreements"]
+        if dev_acc >= dev_best_acc:
+            dev_best_acc = dev_acc
+
+def evaluate(model, test_loader, teacher_preds):
+    model.eval()
+    predict_all = []
+    labels_all = []
+
+    with torch.no_grad():
+        bar = tqdm(test_loader, total=len(test_loader))
+        bar.set_description("Evaluation")
+        for batch in bar:
+            texts = batch[0].to("cuda")        
+            label = batch[1].to("cuda")
+            prob = model(texts)
+
+            predict_all.append(prob.cpu().numpy())
+            labels_all.append(label.cpu().numpy())
+
+    predict_all = np.concatenate(predict_all, 0)
+    labels_all = np.concatenate(labels_all, 0)
+
+    preds = predict_all[:, 0] > 0.5
+    recall = recall_score(labels_all, preds)
+    precision = precision_score(labels_all, preds)
+    f1 = f1_score(labels_all, preds)
+    results = {
+        "eval_acc": np.mean(labels_all==preds),
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1),
+        "agreements": np.mean(teacher_preds==preds)
+    }
+    return results
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -204,10 +293,6 @@ def main():
                         help="Optional input sequence length after tokenization.")
     parser.add_argument("--model_dir", default="./", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
-    parser.add_argument("--model", default="biLSTM", type=str, required=True,
-                        help="Student Model Type.")
-    parser.add_argument("--loss_func", default="ce", type=str,
-                        help="Loss Function Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
@@ -219,33 +304,30 @@ def main():
 
     args = parser.parse_args()
     search_space = {
-        # TODO: resize the search space
-        # TODO: local search then global search?
-        # TODO: each search space is continuous
+        "model_arch": ["biGRU", "biLSTM"],
+        "encoding": ["token", "subtoken", "BPE"],
         "vocab_size": [*range(1000, 51000, 1000)],
         "input_dim": [*range(1, 769)],
         "hidden_dim": [*range(1, 769)],
         "n_layers": [*range(1, 13)],
-        "alpha": torch.arange(0.75, 1, 0.02).tolist(),
-        "lr": [1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4], 
-        "temperature": [*range(1, 11)]
+        "lr": [1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]
     }
 
     logger.info("***Start GA search for %d generations and %d population***" %
           (args.generation_size, args.population_size))
 
     searcher = GA_search(args, search_space)
-    searcher.initialization(args.population_size)
+    searcher.initialization()
 
-    for gen in tqdm(args.generation_size):
+    for gen in tqdm(range(args.generation_size)):
         logger.info("***Start generate %d***" %(gen))
-        searcher.fitness()
+        # searcher.fitness()
         searcher.generation()
     
     graded_genome = [(searcher.fitness(genome), genome) for genome in searcher.population]
     graded_genome = [x[1] for x in sorted(graded_genome, key=lambda x: x[0], reverse=True)]
 
-    logger.info(graded_genome[:3])
+    logger.info(graded_genome[0].gene_param)
 
 
 if __name__ == "__main__":

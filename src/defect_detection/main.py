@@ -110,7 +110,7 @@ def train(args, model, tokenizer):
                     if results["eval_acc"] >= best_acc:
                         best_acc = results["eval_acc"]
 
-                        checkpoint_prefix = 'checkpoint_new'
+                        checkpoint_prefix = 'checkpoint'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
