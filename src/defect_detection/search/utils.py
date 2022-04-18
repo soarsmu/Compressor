@@ -22,7 +22,7 @@ class GATextDataset(Dataset):
 
         folder = os.path.join("/".join(file_path.split("/")[:-1]), "search")
         os.makedirs(folder, exist_ok=True)
-        cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+enocoding+str(vocab_size)))
+        cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_"+enocoding+"_"+str(vocab_size)))
 
         try:
             self.examples = torch.load(cache_file_path)
