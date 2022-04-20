@@ -54,7 +54,7 @@ def train(args, model, train_dataloader, eval_dataloader):
             optimizer.zero_grad()
 
         dev_results = evaluate(model, eval_dataloader)
-        dev_acc = dev_results["eval_recall"]
+        dev_acc = dev_results["eval_acc"]
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
             output_dir = os.path.join(args.model_dir, args.size, "best")
