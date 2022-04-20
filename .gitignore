@@ -142,3 +142,4 @@ data/defect_detection
 *.jsonl
 *.json
 *.txt
+*.npy

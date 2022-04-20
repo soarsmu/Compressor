@@ -5,16 +5,20 @@ import torch
 import random
 import logging
 import hashlib
+import warnings
 import argparse
 import numpy as np
 
 from tqdm import tqdm
-from utils import GATextDataset, TextDataset
-
+from thop import profile
+# from utils import GATextDataset, TextDataset
+from torchinfo import summary
 from predefined.models import biLSTM, biGRU, CodeBERT
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
+
+warnings.filterwarnings("ignore")
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -37,12 +41,10 @@ class Genome(object):
     
     def update_hash(self):
         gene_string = str(self.gene_param["model_arch"])+ \
-                        str(self.gene_param["encoding"]) + \
                         str(self.gene_param["vocab_size"]) + \
                         str(self.gene_param["input_dim"]) + \
                         str(self.gene_param["hidden_dim"]) + \
-                        str(self.gene_param["n_layers"]) + \
-                        str(self.gene_param["lr"])
+                        str(self.gene_param["n_layers"]) 
         self.hash = hashlib.md5(gene_string.encode("UTF-8")).hexdigest()
 
     def mutation(self, search_space):
@@ -55,7 +57,7 @@ class Genome(object):
 
 
 class GA_search():
-    def __init__(self, args, search_space, retain_chance=0.3, mutate_chance=0.3):
+    def __init__(self, args, search_space, retain_chance=0.3, mutate_chance=0.5):
         self.args = args
         self.search_space = search_space
         self.retain_chance = retain_chance
@@ -86,46 +88,46 @@ class GA_search():
         # logger.info(self.population)
     
     def fitness(self, genome):
-        try:
-            teacher_preds = np.load("teacher_preds.npy")
-        except:
-            config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-            config.num_labels = 2
+        # try:
+        #     teacher_preds = np.load("teacher_preds.npy")
+        # except:
+        #     config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+        #     config.num_labels = 2
             
-            tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
-            tokenizer.do_lower_case = True
+        #     tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
+        #     tokenizer.do_lower_case = True
 
-            if self.args.block_size <= 0:
-                self.args.block_size = tokenizer.max_len_single_sentence
-            self.args.block_size = min(self.args.block_size, tokenizer.max_len_single_sentence)
+        #     if self.args.block_size <= 0:
+        #         self.args.block_size = tokenizer.max_len_single_sentence
+        #     self.args.block_size = min(self.args.block_size, tokenizer.max_len_single_sentence)
 
-            teacher_model = CodeBERT(RobertaForSequenceClassification.from_pretrained("microsoft/codebert-base", config=config))
+        #     teacher_model = CodeBERT(RobertaForSequenceClassification.from_pretrained("microsoft/codebert-base", config=config))
+        #     total_params = sum(p.numel() for p in teacher_model.parameters())
+        #     logger.info(total_params)
             
-            eval_dataset = TextDataset(tokenizer, self.args, self.args.eval_data_file)
-            eval_sampler = SequentialSampler(eval_dataset)
-            eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
+        #     eval_dataset = TextDataset(tokenizer, self.args, self.args.eval_data_file)
+        #     eval_sampler = SequentialSampler(eval_dataset)
+        #     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
 
-            teacher_model.eval()
-            teacher_model.load_state_dict(torch.load("../checkpoint/model.bin"))
-            teacher_model.to("cuda")
-            teacher_preds = []
-            bar = tqdm(eval_dataloader, total=len(eval_dataloader))
-            with torch.no_grad():
-                for batch in bar:
-                    inputs = batch[0].to("cuda")
-                    preds = teacher_model(inputs)
-                    teacher_preds.append(preds.cpu().numpy())
-            teacher_preds = np.concatenate(teacher_preds, 0)
-            teacher_preds = teacher_preds[:, 0] > 0.5
-            np.save("teacher_preds", teacher_preds)
+        #     teacher_model.eval()
+        #     teacher_model.load_state_dict(torch.load("../checkpoint/model.bin"))
+        #     teacher_model.to("cuda")
+        #     teacher_preds = []
+        #     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+        #     with torch.no_grad():
+        #         for batch in bar:
+        #             inputs = batch[0].to("cuda")
+        #             preds = teacher_model(inputs)
+        #             teacher_preds.append(preds.cpu().numpy())
+        #     teacher_preds = np.concatenate(teacher_preds, 0)
+        #     teacher_preds = teacher_preds[:, 0] > 0.5
+        #     np.save("teacher_preds", teacher_preds)
 
         model_arch = genome.gene_param["model_arch"]
-        encoding =  genome.gene_param["encoding"]
         vocab_size = genome.gene_param["vocab_size"]
         input_dim = genome.gene_param["input_dim"]
         hidden_dim = genome.gene_param["hidden_dim"]
         n_layers = genome.gene_param["n_layers"]
-        lr = genome.gene_param["lr"]
         n_labels = 2
 
         if model_arch == "biLSTM":
@@ -133,20 +135,34 @@ class GA_search():
         elif model_arch == "biGRU":
             model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
 
-        train_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.train_data_file, logger)
-        train_sampler = RandomSampler(train_dataset)
-        train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size)
+        # train_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.train_data_file, logger)
+        # train_sampler = RandomSampler(train_dataset)
+        # train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size)
 
-        eval_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.eval_data_file, logger)
-        eval_sampler = SequentialSampler(eval_dataset)
-        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
+        # eval_dataset = GATextDataset(self.args, vocab_size, encoding, self.args.eval_data_file, logger)
+        # eval_sampler = SequentialSampler(eval_dataset)
+        # eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=self.args.eval_batch_size, num_workers=8, pin_memory=True)
 
-        model.to("cuda")
-        agreements = train(model, lr, train_dataloader, eval_dataloader, teacher_preds)
-        total_params = sum(p.numel() for p in model.parameters())
-        genome.fitness = agreements / (total_params*4/1e6)
-
-        logger.info(genome.gene_param, genome.fitness)
+        # model.to("cuda")
+        # agreements = train(model, lr, train_dataloader, eval_dataloader, teacher_preds)
+        inputs = torch.randint(vocab_size, (1, 400))
+        flops, params = profile(model, (inputs, ), verbose=True)
+        
+        # summary(model, (1, 400), dtypes=[torch.long], verbose=2,
+        # col_width=16,
+        # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
+        # row_settings=["var_names"],)
+        # exit()
+        # total_params = sum(p.numel() for p in model.parameters())
+        # genome.fitness = agreements * (124647170/total_params)
+        # logger.info([agreements)
+        # logger.info(flops - params)
+        # logger.info(params)
+        # genome.fitness = flops - params
+        logger.info(flops/1e9 - abs(3 - params*4/1e6))
+        logger.info("size %f", params*4.0/1e6)
+        # # logger.info(params)
+        genome.fitness = flops/1e9 - abs(3 - params*4/1e6)
 
     def crossover_and_mutation(self, parents):
         children = []
@@ -162,26 +178,26 @@ class GA_search():
 
         for x in range(0, genome_len):
             if x < recomb_loc:
-                child_1[keys[x]] = parent_1.geneparam[keys[x]]
-                child_2[keys[x]] = parent_2.geneparam[keys[x]]
+                child_1[keys[x]] = parent_1.gene_param[keys[x]]
+                child_2[keys[x]] = parent_2.gene_param[keys[x]]
             else:
-                child_1[keys[x]] = parent_2.geneparam[keys[x]]
-                child_2[keys[x]] = parent_1.geneparam[keys[x]]
+                child_1[keys[x]] = parent_2.gene_param[keys[x]]
+                child_2[keys[x]] = parent_1.gene_param[keys[x]]
 
         genome_1 = Genome(child_1)
         genome_2 = Genome(child_2)
 
         if self.mutate_chance > random.random():
-            genome_1.mutation()
+            genome_1.mutation(self.search_space)
 
         if self.mutate_chance > random.random():
-            genome_2.mutation()
+            genome_2.mutation(self.search_space)
 
         while self.is_duplicate(genome_1):
-            genome_1.mutation()
+            genome_1.mutation(self.search_space)
 
         while self.is_duplicate(genome_2):
-            genome_2.mutation()
+            genome_2.mutation(self.search_space)
 
         children.append(genome_1)
         children.append(genome_2)
@@ -189,8 +205,11 @@ class GA_search():
         return children
 
     def generation(self):
-        graded_genome = [(self.fitness(genome), genome) for genome in self.population]
-        graded_genome = [x[1] for x in sorted(graded_genome, key=lambda x: x[0], reverse=True)]
+        for genome in self.population:
+            self.fitness(genome)
+        graded_genome = [x for x in sorted(self.population, key=lambda x: x.fitness, reverse=True)]
+        logger.info(graded_genome[0].gene_param)
+        logger.info(graded_genome[0].fitness)
         retain_length = int(len(graded_genome) * self.retain_chance)
         new_generation = graded_genome[:retain_length]
         desired_length = len(self.population) - len(new_generation)
@@ -209,7 +228,7 @@ class GA_search():
         self.population = new_generation
 
 def train(model, lr, train_loader, eval_loader, teacher_preds):
-    num_steps = len(train_loader) * 10
+    num_steps = len(train_loader) * 5
     no_decay = ['bias', 'LayerNorm.weight']
 
     optimizer_grouped_parameters = [
@@ -221,16 +240,16 @@ def train(model, lr, train_loader, eval_loader, teacher_preds):
                                                 num_training_steps=num_steps)
     dev_best_acc = 0
 
-    for epoch in range(10):
+    for epoch in range(5):
         model.train()
         tr_num = 0
         train_loss = 0
 
-        logger.info('Epoch [{}/{}]'.format(epoch + 1, 10))
+        logger.info('Epoch [{}/{}]'.format(epoch + 1, 5))
         bar = tqdm(train_loader, total=len(train_loader))
         bar.set_description("Train")
         for step, batch in enumerate(bar):
-            texts = batch[0].to("cuda")    
+            texts = batch[0].to("cuda")
             labels = batch[1].to("cuda")
             loss, _ = model(texts, labels)
 
@@ -238,14 +257,16 @@ def train(model, lr, train_loader, eval_loader, teacher_preds):
             train_loss += loss.item()
             tr_num += 1
 
-            scheduler.step()
             optimizer.step()
+            scheduler.step()
             optimizer.zero_grad()
 
         dev_results = evaluate(model, eval_loader, teacher_preds)
         dev_acc = dev_results["agreements"]
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
+
+    return dev_best_acc
 
 def evaluate(model, test_loader, teacher_preds):
     model.eval()
@@ -275,7 +296,7 @@ def evaluate(model, test_loader, teacher_preds):
         "eval_precision": float(precision),
         "eval_recall": float(recall),
         "eval_f1": float(f1),
-        "agreements": np.mean(teacher_preds==preds)
+        "agreements": np.sum(teacher_preds==preds)
     }
     return results
 
@@ -305,12 +326,10 @@ def main():
     args = parser.parse_args()
     search_space = {
         "model_arch": ["biGRU", "biLSTM"],
-        "encoding": ["token", "subtoken", "BPE"],
-        "vocab_size": [*range(1000, 51000, 1000)],
-        "input_dim": [*range(1, 769)],
-        "hidden_dim": [*range(1, 769)],
-        "n_layers": [*range(1, 13)],
-        "lr": [1e-5, 2e-5, 5e-5, 1e-4, 2e-4, 5e-4]
+        "vocab_size": [*range(1000, 21000, 1000)],
+        "input_dim": [*range(16, 769, 16)],
+        "hidden_dim": [*range(16, 769, 16)],
+        "n_layers": [*range(1, 13)]
     }
 
     logger.info("***Start GA search for %d generations and %d population***" %
@@ -321,13 +340,14 @@ def main():
 
     for gen in tqdm(range(args.generation_size)):
         logger.info("***Start generate %d***" %(gen))
-        # searcher.fitness()
         searcher.generation()
     
-    graded_genome = [(searcher.fitness(genome), genome) for genome in searcher.population]
-    graded_genome = [x[1] for x in sorted(graded_genome, key=lambda x: x[0], reverse=True)]
+    for genome in searcher.population:
+            searcher.fitness(genome)
+    graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
 
     logger.info(graded_genome[0].gene_param)
+    logger.info(graded_genome[0].fitness)
 
 
 if __name__ == "__main__":

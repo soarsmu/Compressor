@@ -27,15 +27,9 @@ class Token_Encoder(object):
         self.encoding = encoding
         folder = "/".join(file_path.split("/")[:-1])
         try:
-            if encoding in {"token", "subtoken"}:
-                
-                tokenizer_path = os.path.join(folder, "token_encoder", encoding + "_" + str(vocab_size) + ".json")
-                self.tokenizer = Tokenizer.from_file(tokenizer_path)
-                self.logger.info("Loading vocabulary from file %s", tokenizer_path)
-            else:
-                tokenizer_path = os.path.join(folder, "token_encoder", encoding + "_" + str(vocab_size))
-                self.tokenizer = ByteLevelBPETokenizer.from_file(tokenizer_path+"/vocab.json", tokenizer_path+"/merges.txt")
-                self.logger.info("Loading vocabulary from file %s", tokenizer_path)
+            tokenizer_path = os.path.join(folder, "token_encoder", encoding + "_" + str(vocab_size) + ".json")
+            self.tokenizer = Tokenizer.from_file(tokenizer_path)
+            self.logger.info("Loading vocabulary from file %s", tokenizer_path)
         except:
             data = []
             with open(self.file_path) as f:

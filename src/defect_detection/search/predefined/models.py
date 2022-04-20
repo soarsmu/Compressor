@@ -32,7 +32,7 @@ class biLSTM(nn.Module):
                             bidirectional=True)
         self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
-    def forward(self, input_ids, labels):
+    def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         outputs, (hidden, _) = self.lstm(embed)
         hidden = hidden.permute(1, 0, 2)
@@ -60,7 +60,7 @@ class biGRU(nn.Module):
                             bidirectional=True)
         self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
-    def forward(self, input_ids, labels):
+    def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         _, hidden = self.gru(embed)
         hidden = hidden.permute(1, 0, 2)
