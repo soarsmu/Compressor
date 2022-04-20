@@ -29,10 +29,10 @@ def train(args, model, tokenizer):
     args.num_train_epochs = args.epoch
     model.to(args.device)
 
-    no_decay = ['bias', 'LayerNorm.weight']
+    no_decay = ["bias", "LayerNorm.weight"]
 
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters(
+        {"params": [p for n, p in model.named_parameters(
         ) if not any(nd in n for nd in no_decay)]}
     ]
 
@@ -110,12 +110,12 @@ def train(args, model, tokenizer):
                     if results["eval_acc"] >= best_acc:
                         best_acc = results["eval_acc"]
 
-                        checkpoint_prefix = 'checkpoint'
-                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
+                        checkpoint_prefix = "checkpoint"
+                        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
-                        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+                        output_dir = os.path.join(output_dir, "{}".format("model.bin"))
                         torch.save(model.module.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                     else:
@@ -154,6 +154,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     labels = np.concatenate(labels, 0)
 
     preds = logits[:, 0] > 0.5
+    np.save("../../../data/defect_detection/preds_test", preds)
     eval_acc = np.mean(labels==preds)
     recall = recall_score(labels, preds)
     precision = precision_score(labels, preds)
@@ -178,7 +179,7 @@ def main():
 
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
-    parser.add_argument("--output_dir", default="./", type=str,
+    parser.add_argument("--output_dir", default="../", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
@@ -186,18 +187,18 @@ def main():
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-    parser.add_argument("--do_train", action='store_true',
+    parser.add_argument("--do_train", action="store_true",
                         help="Whether to run training.")
-    parser.add_argument("--do_eval", action='store_true',
+    parser.add_argument("--do_eval", action="store_true",
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--evaluate_during_training", action='store_true',
+    parser.add_argument("--evaluate_during_training", action="store_true",
                         help="Run evaluation during training at each logging step.")
 
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
@@ -207,15 +208,15 @@ def main():
                         help="Max gradient norm.")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument('--logging_steps', type=int, default=50,
+    parser.add_argument("--logging_steps", type=int, default=50,
                         help="Log every X updates steps.")
-    parser.add_argument('--save_steps', type=int, default=50,
+    parser.add_argument("--save_steps", type=int, default=50,
                         help="Save checkpoint every X updates steps.")
-    parser.add_argument("--no_cuda", action='store_true',
+    parser.add_argument("--no_cuda", action="store_true",
                         help="Avoid using CUDA when available")
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument("--seed", type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--epoch', type=int, default=42,
+    parser.add_argument("--epoch", type=int, default=42,
                         help="random seed for initialization")
 
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)

@@ -91,3 +91,12 @@ class CNN(nn.Module):
 
     def forward(self, input_ids):
         pass
+
+
+def loss_func(preds, labels, knowledge):
+    labels = labels.long()
+    knowledge = knowledge.long()
+
+    loss = 0.5 * F.cross_entropy(preds, 1-labels) + 0.5 * F.cross_entropy(preds, 1-knowledge)
+
+    return loss
