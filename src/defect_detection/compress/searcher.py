@@ -8,7 +8,7 @@ import argparse
 
 from tqdm import tqdm
 from thop import profile
-from predefined.models import biLSTM, biGRU
+from models import biLSTM, biGRU
 
 warnings.filterwarnings("ignore")
 
@@ -93,9 +93,9 @@ class GA_search():
         inputs = torch.randint(vocab_size, (1, 400))
         flops, _ = profile(model, (inputs, ), verbose=False)
         params = sum(p.numel() for p in model.parameters())
-        logger.info(flops/1e9 - abs(3 - params*4/1e6))
+        logger.info(flops/1e9 - abs(20 - params*4/1e6))
         logger.info("size %f", params*4.0/1e6)
-        genome.fitness = flops/1e9 - abs(3 - params*4/1e6)
+        genome.fitness = flops/1e9 - abs(20 - params*4/1e6)
 
     def crossover_and_mutation(self, parents):
         children = []
@@ -203,7 +203,7 @@ def main():
         searcher.generation()
     
     for genome in searcher.population:
-            searcher.fitness(genome)
+        searcher.fitness(genome)
     graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
 
     logger.info(graded_genome[0].gene_param)

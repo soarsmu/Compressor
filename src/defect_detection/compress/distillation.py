@@ -183,7 +183,7 @@ def main():
         model_dir = os.path.join(args.model_dir, args.size, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
-        eval_res = evaluate(args, model, eval_dataloader)
+        eval_res = evaluate(model, eval_dataloader)
         logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 
 
