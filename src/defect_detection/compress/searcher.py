@@ -146,8 +146,8 @@ class GA_search():
         # model.to("cuda")
         # agreements = train(model, lr, train_dataloader, eval_dataloader, teacher_preds)
         inputs = torch.randint(vocab_size, (1, 400))
-        flops, params = profile(model, (inputs, ), verbose=True)
-        
+        flops, _ = profile(model, (inputs, ), verbose=False)
+        params = sum(p.numel() for p in model.parameters())
         # summary(model, (1, 400), dtypes=[torch.long], verbose=2,
         # col_width=16,
         # col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
@@ -326,7 +326,7 @@ def main():
     args = parser.parse_args()
     search_space = {
         "model_arch": ["biGRU", "biLSTM"],
-        "vocab_size": [*range(1000, 21000, 1000)],
+        "vocab_size": [*range(1000, 26000, 1000)],
         "input_dim": [*range(16, 769, 16)],
         "hidden_dim": [*range(16, 769, 16)],
         "n_layers": [*range(1, 13)]

@@ -83,3 +83,11 @@ class Transformer(nn.Module):
 
     def forward(self, input_ids):
         pass
+
+
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+
+    def forward(self, input_ids):
+        pass

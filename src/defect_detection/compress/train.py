@@ -11,6 +11,7 @@ import numpy as np
 
 from tqdm import tqdm
 from thop import profile
+from torchinfo import summary
 from utils import GATextDataset, TextDataset
 
 from predefined.models import biLSTM, biGRU, CodeBERT
@@ -141,19 +142,35 @@ def main():
 
     # {'encoding': 'subtoken', 'hidden_dim': 114, 'input_dim': 367, 'lr': 2e-05, 'model_arch': 'biLSTM', 'n_layers': 2, 'vocab_size': 36000}
 
-    train_dataset = GATextDataset(args, 3000, "BPE", args.train_data_file, logger)
+    train_dataset = GATextDataset(args, 1000, "BPE", args.train_data_file, logger)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
 
-    eval_dataset = GATextDataset(args, 3000, "BPE", args.eval_data_file, logger)
+    eval_dataset = GATextDataset(args, 1000, "BPE", args.eval_data_file, logger)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
 
-    model = biGRU(3000, 32, 80, 2, 7)
+    model = biGRU(1000, 208, 48, 2, 12)
+    total_params = sum(p.numel() for p in model.parameters())
+    logger.info(f'{total_params:,} total parameters.')
+    logger.info(f'{total_params*4/1e6} MB model size')
 
+    inputs = torch.randint(1000, (1, 400))
+    flops, params = profile(model, (inputs, ), verbose=True)
+    
+    summary(model, (1, 400), dtypes=[torch.long], verbose=2,
+    col_width=16,
+    col_names=["kernel_size", "output_size", "num_params", "mult_adds"],
+    row_settings=["var_names"],)
+    logger.info(params)
+    logger.info(flops/1e6)
+    logger.info(params*4/1e6)
+    torch.save(model.state_dict(), "./model.bin")
+    exit()
     model.to("cuda")
     teacher_preds = np.load("teacher_preds.npy")
     agreements = train(model, 1e-3, train_dataloader, eval_dataloader, teacher_preds)
+
 
 
 if __name__ == "__main__":
