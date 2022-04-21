@@ -94,10 +94,10 @@ class GA_search():
         flops, _ = profile(model, (inputs, ), verbose=False)
         params = sum(p.numel() for p in model.parameters())
 
-        logger.info(abs(self.args.target_flops - flops)/1e9 - abs(self.args.target_size - params)*4/1e6)
+        logger.info(flops/1e9 - abs(self.args.target_size - params)*4/1e6)
         logger.info("size %f", params*4.0/1e6)
 
-        genome.fitness = abs(self.args.target_flops - flops)/1e9 - abs(self.args.target_size - params)*4/1e6
+        genome.fitness = flops/1e9 - abs(self.args.target_size - params)*4/1e6
 
     def crossover_and_mutation(self, parents):
         children = []
