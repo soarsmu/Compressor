@@ -97,6 +97,7 @@ class GA_search():
         size_diff = abs(self.args.target_size - params)*4/1e6
         logger.info(1 / flops_diff / size_diff)
         logger.info("size %f", params*4.0/1e6)
+        logger.info("flops %f", flops/1e9)
 
         genome.fitness = 1 / flops_diff / size_diff
 
