@@ -93,13 +93,13 @@ class GA_search():
         inputs = torch.randint(vocab_size, (1, 400))
         flops, _ = profile(model, (inputs, ), verbose=False)
         params = sum(p.numel() for p in model.parameters())
-        flops_diff = abs(self.args.target_flops - flops)/1e9
+        flops = flops/1e9
         size_diff = abs(self.args.target_size - params)*4/1e6
-        logger.info(flops_diff - size_diff)
+        logger.info(flops - size_diff)
         logger.info("size %f", params*4.0/1e6)
         logger.info("flops %f", flops/1e9)
 
-        genome.fitness = flops_diff - size_diff
+        genome.fitness = flops - size_diff
 
     def crossover_and_mutation(self, parents):
         children = []
