@@ -49,7 +49,7 @@ class Genome(object):
 
 
 class GA_search():
-    def __init__(self, args, search_space, retain_chance=0.3, mutate_chance=0.5):
+    def __init__(self, args, search_space, retain_chance=0.3, mutate_chance=0.3):
         self.args = args
         self.search_space = search_space
         self.retain_chance = retain_chance
@@ -93,9 +93,11 @@ class GA_search():
         inputs = torch.randint(vocab_size, (1, 400))
         flops, _ = profile(model, (inputs, ), verbose=False)
         params = sum(p.numel() for p in model.parameters())
-        logger.info(flops/1e9 - abs(20 - params*4/1e6))
+
+        logger.info(abs(self.args.target_flops - flops)/1e9 - abs(self.args.target_size - params)*4/1e6)
         logger.info("size %f", params*4.0/1e6)
-        genome.fitness = flops/1e9 - abs(20 - params*4/1e6)
+
+        genome.fitness = abs(self.args.target_flops - flops)/1e9 - abs(self.args.target_size - params)*4/1e6
 
     def crossover_and_mutation(self, parents):
         children = []
@@ -166,34 +168,21 @@ def main():
 
     parser.add_argument("--population_size", default=10, type=int, required=True)
     parser.add_argument("--generation_size", default=20, type=int, required=True)
-    parser.add_argument("--train_data_file", default=None, type=str, required=True,
-                        help="The input training data file")
-    parser.add_argument("--eval_data_file", default=None, type=str,
-                        help="An optional input evaluation data file to evaluate the perplexity on")
-    parser.add_argument("--block_size", default=-1, type=int,
-                        help="Optional input sequence length after tokenization.")
-    parser.add_argument("--model_dir", default="./", type=str,
-                        help="The output directory where the model predictions and checkpoints will be written.")
-    parser.add_argument("--train_batch_size", default=16, type=int,
-                        help="Batch size per GPU/CPU for training.")
-    parser.add_argument("--eval_batch_size", default=16, type=int,
-                        help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument('--seed', type=int, default=42,
-                        help="random seed for initialization")
-    parser.add_argument('--epochs', type=int, default=42,
-                        help="random seed for initialization")
+    parser.add_argument("--target_size", default=0.01, type=float, required=True)
+    parser.add_argument("--target_flops", default=33989813760, type=float, required=True)
 
     args = parser.parse_args()
     search_space = {
         "model_arch": ["biGRU", "biLSTM"],
-        "vocab_size": [*range(1000, 26000, 1000)],
+        "vocab_size": [*range(1000, 53000, 1000)],
         "input_dim": [*range(16, 769, 16)],
         "hidden_dim": [*range(16, 769, 16)],
         "n_layers": [*range(1, 13)]
     }
-
-    logger.info("***Start GA search for %d generations and %d population***" %
-          (args.generation_size, args.population_size))
+    params = 124647170
+    args.target_size = params * 0.01
+    logger.info("***Start GA search for %d generations, %d population, target model size %d MB***" %
+          (args.generation_size, args.population_size, args.target_size*4/1e6))
 
     searcher = GA_search(args, search_space)
     searcher.initialization()

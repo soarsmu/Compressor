@@ -1,3 +1,4 @@
+```
 CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --do_train \
     --train_data_file=../../../data/defect_detection/train.jsonl \
@@ -13,8 +14,10 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --epochs 15 \
-    --seed 123456 2>&1| tee ../logs/train_3_dis.log
+    --seed 123456 2>&1| tee ../logs/train_3_dis.log]
+```
 
+```
 CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/train.jsonl \
@@ -31,3 +34,4 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --eval_batch_size 64 \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/eval_3_dis.log
+```
