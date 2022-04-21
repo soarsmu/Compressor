@@ -98,7 +98,7 @@ class GA_search():
         logger.info("size %f", params*4.0/1e6)
         logger.info("flops %f", flops/1e9)
 
-        genome.fitness = flops/1e9 - size_diff
+        genome.fitness = flops/1e9 / size_diff
 
     def crossover_and_mutation(self, parents):
         children = []
