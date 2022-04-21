@@ -93,7 +93,7 @@ class GA_search():
         inputs = torch.randint(vocab_size, (1, 400))
         flops, _ = profile(model, (inputs, ), verbose=False)
         params = sum(p.numel() for p in model.parameters())
-        flops_diff = abs(self.args.target_flops - flops)/1e9
+        flops_diff = abs(self.args.target_flops - flops)/1e8
         size_diff = abs(self.args.target_size - params)*4/1e6
         logger.info(1 / flops_diff / size_diff)
         logger.info("size %f", params*4.0/1e6)
