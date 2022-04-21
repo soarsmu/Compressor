@@ -169,7 +169,7 @@ def main():
     parser.add_argument("--population_size", default=10, type=int, required=True)
     parser.add_argument("--generation_size", default=20, type=int, required=True)
     parser.add_argument("--target_size", default=0.01, type=float, required=True)
-    parser.add_argument("--target_flops", default=33989813760, type=float, required=True)
+    parser.add_argument("--target_flops", default=33989813760, type=float)
 
     args = parser.parse_args()
     search_space = {

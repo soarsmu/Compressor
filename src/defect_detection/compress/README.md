@@ -35,3 +35,10 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/eval_3_dis.log
 ```
+
+```
+python searcher.py \
+    --population_size 20 \
+    --generation_size 50 \
+    --target_size 0.01 2>&1| tee ../logs/search.log
+```
