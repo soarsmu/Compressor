@@ -50,11 +50,12 @@ class Genome(object):
 
 
 class GA_search():
-    def __init__(self, args, search_space, cross_chance=0.7, mutate_chance=0.1):
+    def __init__(self, args, search_space, desired_length=20, cross_chance=0.7, mutate_chance=0.15):
         self.args = args
         self.search_space = search_space
         self.cross_chance = cross_chance
         self.mutate_chance = mutate_chance
+        self.desired_length = desired_length
         self.population = []
         self.best_gene = []
 
@@ -62,6 +63,7 @@ class GA_search():
         for genome in self.population:
             if new_genome.hash == genome.hash:
                 return True
+        return False
 
     def initialization(self):
         count = 0
@@ -74,9 +76,9 @@ class GA_search():
             
             if len(self.population) > 0:
                 while self.is_duplicate(new_genome):
-                    new_genome.mutation()
+                    new_genome.mutation(self.search_space)
 
-            self.population.append(new_genome)
+            self.population.append(copy.deepcopy(new_genome))
             count += 1
     
     def fitness(self, genome):
@@ -126,13 +128,13 @@ class GA_search():
             genome_1 = Genome(child_1)
             genome_2 = Genome(child_2)
         else:
-            genome_1 = parent_1
-            genome_2 = parent_2
+            genome_1 = copy.deepcopy(parent_1)
+            genome_2 = copy.deepcopy(parent_2)
 
-        if self.mutate_chance > random.random():
+        # if self.mutate_chance > random.random():
             genome_1.mutation(self.search_space)
 
-        if self.mutate_chance > random.random():
+        # if self.mutate_chance > random.random():
             genome_2.mutation(self.search_space)
 
         # while self.is_duplicate(genome_1):
@@ -147,34 +149,30 @@ class GA_search():
         return children
 
     def generation(self):
+        children = []
+        while len(children) < self.desired_length:
+            parents = random.sample(self.population, k=2)
+            children.extend(self.crossover_and_mutation(parents))
+
+        # deduplication
+        for genome in children:
+            while self.is_duplicate(genome):
+                genome.mutation(self.search_space)
+            self.population.append(copy.deepcopy(genome))
+        
         for genome in self.population:
             self.fitness(genome)
 
         graded_genome = [x for x in sorted(self.population, key=lambda x: x.fitness, reverse=True)]
-        self.best_gene.append((graded_genome[0].gene_param, graded_genome[0].fitness))
         logger.info(graded_genome[0].gene_param)
         logger.info(graded_genome[0].fitness)
-        fitness_min = min([x.fitness for x in self.population])
-        fitness_sum = sum([x.fitness - fitness_min for x in self.population])
-        select_prob = [(x.fitness - fitness_min)/fitness_sum for x in self.population]
-       
-        new_generation = []
-        while len(new_generation) < self.args.population_size:
-            parents = random.choices(self.population, weights=select_prob, k=2)
-            new_generation.extend(self.crossover_and_mutation(parents))
-
-        self.population = []
-
-        for genome in new_generation:
-            while self.is_duplicate(genome):
-                genome.mutation(self.search_space)
-            self.population.append(genome)
-
+        self.best_gene.append((graded_genome[0].gene_param, graded_genome[0].fitness))
+        self.population = graded_genome[:self.args.population_size]
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--population_size", default=2, type=int)
+    parser.add_argument("--population_size", default=20, type=int)
     parser.add_argument("--generation_size", default=20, type=int)
     parser.add_argument("--target_size", default=0.01, type=float)
     parser.add_argument("--target_flops", default=33989813760, type=float)
