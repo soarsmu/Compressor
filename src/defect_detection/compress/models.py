@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -76,22 +77,51 @@ class biGRU(nn.Module):
         else:
             return prob
 
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, vocab_size=5000):
+        super().__init__()
+
+        pe = torch.zeros(vocab_size, d_model)
+        position = torch.arange(0, vocab_size, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float()
+            * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        x = x + self.pe[:, : x.size(1), :]
+        return x
 
 class Transformer(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(Transformer, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=8, dim_feedforward=hidden_dim, batch_first=True)
+        self.pos_encoder = PositionalEncoding(d_model=input_dim, vocab_size=vocab_size)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, n_layers)
+        self.fc = nn.Linear(input_dim, n_labels)
+        self.input_dim = input_dim
 
-    def forward(self, input_ids):
-        pass
+    def forward(self, input_ids, labels=None):
+        embed = self.embedding(input_ids) * math.sqrt(self.input_dim)
+        embed = self.pos_encoder(embed)
+        hidden = self.transformer_encoder(embed)
+        hidden = hidden.mean(dim=1)
+        logits = self.fc(hidden)
+        prob = F.softmax(logits)
 
-
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-
-    def forward(self, input_ids):
-        pass
-
+        if labels is not None:
+            labels = labels.long()
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits, (1 - labels))
+            return loss, prob
+        else:
+            return prob
 
 def loss_func(preds, labels, knowledge):
     labels = labels.long()

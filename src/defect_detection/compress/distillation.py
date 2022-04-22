@@ -7,7 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from utils import set_seed, DistilledDataset
-from models import biLSTM, biGRU, loss_func
+from models import biLSTM, biGRU, Transformer, loss_func
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup
@@ -46,6 +46,7 @@ def train(args, model, train_dataloader, eval_dataloader):
             preds = model(texts)
             loss = loss_func(preds, labels, knowledge)
             loss.backward()
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
             tr_num += 1
 
@@ -54,17 +55,17 @@ def train(args, model, train_dataloader, eval_dataloader):
             optimizer.zero_grad()
 
         dev_results = evaluate(model, eval_dataloader)
-        dev_acc = dev_results["eval_acc"]
-        if dev_acc >= dev_best_acc:
-            dev_best_acc = dev_acc
-            output_dir = os.path.join(args.model_dir, args.size, "best")
-            os.makedirs(output_dir, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
-            logger.info("New best model found and saved.")
-        else:
-            output_dir = os.path.join(args.model_dir, args.size, "recent")
-            os.makedirs(output_dir, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
+        # dev_acc = dev_results["eval_acc"]
+        # if dev_acc >= dev_best_acc:
+        #     dev_best_acc = dev_acc
+        #     output_dir = os.path.join(args.model_dir, args.size, "best")
+        #     os.makedirs(output_dir, exist_ok=True)
+        #     torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
+        #     logger.info("New best model found and saved.")
+        # else:
+        #     output_dir = os.path.join(args.model_dir, args.size, "recent")
+        #     os.makedirs(output_dir, exist_ok=True)
+        #     torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
         
         logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
 
@@ -136,7 +137,7 @@ def main():
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--learning_rate", default=5e-4, type=float,
+    parser.add_argument("--learning_rate", default=2e-5, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
@@ -164,6 +165,8 @@ def main():
         model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
     elif args.model == "biGRU":
         model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    elif args.model == "Transformer":
+        model = Transformer(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
 
     if args.do_train:
         train_dataset = DistilledDataset(args, args.vocab_size, args.train_data_file, logger)

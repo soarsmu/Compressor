@@ -50,11 +50,10 @@ class Genome(object):
 
 
 class GA_search():
-    def __init__(self, args, search_space, desired_length=20, cross_chance=0.7, mutate_chance=0.15):
+    def __init__(self, args, search_space, desired_length=20, cross_chance=0.8):
         self.args = args
         self.search_space = search_space
         self.cross_chance = cross_chance
-        self.mutate_chance = mutate_chance
         self.desired_length = desired_length
         self.population = []
         self.best_gene = []
@@ -131,10 +130,7 @@ class GA_search():
             genome_1 = copy.deepcopy(parent_1)
             genome_2 = copy.deepcopy(parent_2)
 
-        # if self.mutate_chance > random.random():
             genome_1.mutation(self.search_space)
-
-        # if self.mutate_chance > random.random():
             genome_2.mutation(self.search_space)
 
         # while self.is_duplicate(genome_1):
