@@ -49,7 +49,7 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --eval_data_file=../../../data/defect_detection/valid.jsonl \
     --model_dir ../checkpoint \
     --size 3 \
-    --model biGRU \
+    --model biLSTM \
     --input_dim 208 \
     --hidden_dim 48 \
     --n_layers 12 \

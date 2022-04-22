@@ -9,7 +9,7 @@ import numpy as np
 
 from tqdm import tqdm
 from thop import profile
-from models import biLSTM, biGRU
+from models import LSTM, biLSTM, GRU, biGRU, Transformer
 
 warnings.filterwarnings("ignore")
 
@@ -90,8 +90,14 @@ class GA_search():
 
         if model_arch == "biLSTM":
             model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        elif model_arch == "LSTM":
+            model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        elif model_arch == "GRU":
+            model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
         elif model_arch == "biGRU":
             model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        elif model_arch == "Transformer":
+            model = Transformer(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
 
         inputs = torch.randint(vocab_size, (1, 400))
         flops, _ = profile(model, (inputs, ), verbose=False)
@@ -175,7 +181,7 @@ def main():
 
     args = parser.parse_args()
     search_space = {
-        "model_arch": ["biGRU", "biLSTM"],
+        "model_arch": ["GRU", "biGRU", "LSTM", "biLSTM", "Transformer"],
         "vocab_size": [*range(1000, 53000, 1000)],
         "input_dim": [*range(16, 769, 16)],
         "hidden_dim": [*range(16, 769, 16)],

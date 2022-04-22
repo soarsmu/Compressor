@@ -21,6 +21,33 @@ class CodeBERT(nn.Module):
         else:
             return prob
 
+class LSTM(nn.Module):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
+        super(LSTM, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        self.lstm = nn.LSTM(input_size=input_dim,
+                            hidden_size=hidden_dim,
+                            num_layers=n_layers,
+                            batch_first=True, 
+                            bidirectional=False)
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+
+    def forward(self, input_ids, labels=None):
+        embed = self.embedding(input_ids)
+        outputs, (hidden, _) = self.lstm(embed)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        logits = self.fc(hidden)
+        prob = F.softmax(logits)
+
+        if labels is not None:
+            labels = labels.long()
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits, (1 - labels))
+            return loss, prob
+        else:
+            return prob
+
 
 class biLSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
@@ -36,6 +63,34 @@ class biLSTM(nn.Module):
     def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         outputs, (hidden, _) = self.lstm(embed)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        logits = self.fc(hidden)
+        prob = F.softmax(logits)
+
+        if labels is not None:
+            labels = labels.long()
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits, (1 - labels))
+            return loss, prob
+        else:
+            return prob
+
+
+class GRU(nn.Module):
+    def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
+        super(GRU, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, input_dim)
+        self.gru = nn.GRU(input_size=input_dim,
+                            hidden_size=hidden_dim,
+                            num_layers=n_layers,
+                            batch_first=True, 
+                            bidirectional=False)
+        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+
+    def forward(self, input_ids, labels=None):
+        embed = self.embedding(input_ids)
+        _, hidden = self.gru(embed)
         hidden = hidden.permute(1, 0, 2)
         hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
         logits = self.fc(hidden)
