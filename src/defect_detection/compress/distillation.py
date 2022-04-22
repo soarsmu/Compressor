@@ -55,17 +55,17 @@ def train(args, model, train_dataloader, eval_dataloader):
             optimizer.zero_grad()
 
         dev_results = evaluate(model, eval_dataloader)
-        # dev_acc = dev_results["eval_acc"]
-        # if dev_acc >= dev_best_acc:
-        #     dev_best_acc = dev_acc
-        #     output_dir = os.path.join(args.model_dir, args.size, "best")
-        #     os.makedirs(output_dir, exist_ok=True)
-        #     torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
-        #     logger.info("New best model found and saved.")
-        # else:
-        #     output_dir = os.path.join(args.model_dir, args.size, "recent")
-        #     os.makedirs(output_dir, exist_ok=True)
-        #     torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
+        dev_acc = dev_results["eval_acc"]
+        if dev_acc >= dev_best_acc:
+            dev_best_acc = dev_acc
+            output_dir = os.path.join(args.model_dir, args.size, "best")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
+            logger.info("New best model found and saved.")
+        else:
+            output_dir = os.path.join(args.model_dir, args.size, "recent")
+            os.makedirs(output_dir, exist_ok=True)
+            torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
         
         logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
 
