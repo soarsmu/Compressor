@@ -5,6 +5,7 @@ import logging
 import hashlib
 import warnings
 import argparse
+import numpy as np
 
 from tqdm import tqdm
 from thop import profile
@@ -49,10 +50,10 @@ class Genome(object):
 
 
 class GA_search():
-    def __init__(self, args, search_space, desired_length=2, mutate_chance=0.2):
+    def __init__(self, args, search_space, cross_chance=0.7, mutate_chance=0.1):
         self.args = args
         self.search_space = search_space
-        self.desired_length = desired_length
+        self.cross_chance = cross_chance
         self.mutate_chance = mutate_chance
         self.population = []
         self.best_gene = []
@@ -104,25 +105,29 @@ class GA_search():
     def crossover_and_mutation(self, parents):
         children = []
         parent_1, parent_2 = parents
-        genome_len = len(self.search_space)
-        recomb_loc = random.randint(1, genome_len - 1)
 
-        child_1 = {}
-        child_2 = {}
+        if self.cross_chance > random.random():
+            genome_len = len(self.search_space)
+            recomb_loc = random.randint(1, genome_len - 1)
 
-        keys = list(self.search_space)
-        keys = sorted(keys)
+            child_1 = {}
+            child_2 = {}
 
-        for x in range(0, genome_len):
-            if x < recomb_loc:
-                child_1[keys[x]] = parent_1.gene_param[keys[x]]
-                child_2[keys[x]] = parent_2.gene_param[keys[x]]
-            else:
-                child_1[keys[x]] = parent_2.gene_param[keys[x]]
-                child_2[keys[x]] = parent_1.gene_param[keys[x]]
+            keys = list(self.search_space)
+            keys = sorted(keys)
 
-        genome_1 = Genome(child_1)
-        genome_2 = Genome(child_2)
+            for x in range(0, genome_len):
+                if x < recomb_loc:
+                    child_1[keys[x]] = parent_1.gene_param[keys[x]]
+                    child_2[keys[x]] = parent_2.gene_param[keys[x]]
+                else:
+                    child_1[keys[x]] = parent_2.gene_param[keys[x]]
+                    child_2[keys[x]] = parent_1.gene_param[keys[x]]
+            genome_1 = Genome(child_1)
+            genome_2 = Genome(child_2)
+        else:
+            genome_1 = parent_1
+            genome_2 = parent_2
 
         if self.mutate_chance > random.random():
             genome_1.mutation(self.search_space)
@@ -130,11 +135,11 @@ class GA_search():
         if self.mutate_chance > random.random():
             genome_2.mutation(self.search_space)
 
-        while self.is_duplicate(genome_1):
-            genome_1.mutation(self.search_space)
+        # while self.is_duplicate(genome_1):
+        #     genome_1.mutation(self.search_space)
 
-        while self.is_duplicate(genome_2):
-            genome_2.mutation(self.search_space)
+        # while self.is_duplicate(genome_2):
+        #     genome_2.mutation(self.search_space)
 
         self.fitness(genome_1)
         self.fitness(genome_2)
@@ -151,41 +156,15 @@ class GA_search():
         self.best_gene.append((graded_genome[0].gene_param, graded_genome[0].fitness))
         logger.info(graded_genome[0].gene_param)
         logger.info(graded_genome[0].fitness)
-
-        children = []
-        while len(children) < self.desired_length:
-            parents = random.sample(self.population, 2)
-            children.extend(self.crossover_and_mutation(parents))
-
-        self.population.extend(children)
         fitness_min = min([x.fitness for x in self.population])
         fitness_sum = sum([x.fitness - fitness_min for x in self.population])
+        select_prob = [(x.fitness - fitness_min)/fitness_sum for x in self.population]
+       
+        new_generation = []
+        while len(new_generation) < self.args.population_size:
+            parents = random.choices(self.population, weight=select_prob, k=2)
+            new_generation.extend(self.crossover_and_mutation(parents))
 
-        fit_ratio = [(x.fitness - fitness_min)/fitness_sum for x in self.population]  # 每个个体占种群适应度的比例
-        fit_ratio_add = [0]  # 个体累计概率
-        for i in fit_ratio:
-            fit_ratio_add.append(fit_ratio_add[len(fit_ratio_add) - 1] + i)     # 计算每个个体的累计概率，并存放到fit_ratio_add中
-        fit_ratio_add = fit_ratio_add[1:]   # 去掉首位的0
-        rand_list = [random.uniform(0, 1) for _ in self.population]     # 生成和种群规模相等的随机值列表，用于轮盘赌选择个体
-        rand_list.sort()
-        fit_index = 0
-        new_index = 0
-        new_population = range(self.desired_length)
-        print(fit_ratio)
-        print(fit_ratio_add)
-        print(rand_list)
-        exit()
-        while new_index < len(self.population):
-            if rand_list[new_index] < fit_ratio_add[fit_index]:
-                new_population[new_index] = self.population[fit_index]
-                new_index = new_index + 1
-            else:
-                fit_index = fit_index + 1
-
-        return new_population
-
-        idx = random.choice(np.arange(POP_SIZE), size=self.args.population_size, replace=True,
-                           p=(fitness) / (fitness.sum()))       # p实际是个数组，大小（size）应该与指定的a相同，用来规定选取a中每个元素的概率，默认为概率相同
         self.population = new_generation
 
 
