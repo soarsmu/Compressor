@@ -160,14 +160,15 @@ class GA_search():
        
         new_generation = []
         while len(new_generation) < self.args.population_size:
-            parents = random.choices(self.population, weight=select_prob, k=2)
+            parents = random.choices(self.population, weights=select_prob, k=2)
             new_generation.extend(self.crossover_and_mutation(parents))
-        
+
+        self.population = []
+
         for genome in new_generation:
             while self.is_duplicate(genome):
                 genome.mutation(self.search_space)
-
-        self.population = new_generation
+            self.population.append(genome)
 
 
 def main():
