@@ -49,13 +49,13 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --eval_data_file=../../../data/defect_detection/valid.jsonl \
     --model_dir ../checkpoint \
     --size 3 \
-    --model biLSTM \
+    --model LSTM \
     --input_dim 208 \
     --hidden_dim 48 \
     --n_layers 12 \
     --vocab_size 1000 \
     --block_size 400 \
-    --train_batch_size 16 \
+    --train_batch_size 1 \
     --eval_batch_size 64 \
     --epochs 15 \
     --seed 123456

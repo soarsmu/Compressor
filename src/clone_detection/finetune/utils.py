@@ -49,7 +49,7 @@ class TextDataset(Dataset):
                             args, url_to_code))
 
             # if "test" not in postfix:
-            data = random.sample(data, int(len(data)*0.1))
+            # data = random.sample(data, int(len(data)*0.1))
 
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(get_example, tqdm(data, total=len(data)))
