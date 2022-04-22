@@ -15,8 +15,8 @@ CUDA_VISIBLE_DEVICES=1,2 python main.py \
 
 CUDA_VISIBLE_DEVICES=1 python main.py \
     --do_eval \
-    --train_data_file=../../data/clone_search/train_sampled.txt \
-    --eval_data_file=../../data/clone_search/test_sampled.txt \
+    --train_data_file=../../../data/clone_search/train_sampled.txt \
+    --eval_data_file=../../../data/clone_search/train_sampled.txt \
     --block_size 400 \
-    --eval_batch_size 32 \
-    --seed 123456 2>&1| tee logs/eval.log
+    --eval_batch_size 64 \
+    --seed 123456 2>&1| tee ../logs/eval.log

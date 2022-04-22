@@ -88,7 +88,6 @@ def set_seed(seed=42):
 
 
 class InputFeatures(object):
-
     def __init__(self,
                  input_tokens,
                  input_ids,
@@ -99,6 +98,7 @@ class InputFeatures(object):
         self.input_ids = input_ids
         self.label = label
         self.pred = pred
+
 
 # deprecated this class
 class Token_Encoder(object):

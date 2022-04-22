@@ -2,88 +2,100 @@ import os
 import json
 import torch
 import random
-import logging
-import numpy as np
 import multiprocessing
+import numpy as np
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from tokenizers import ByteLevelBPETokenizer
+from tokenizers import Tokenizer, models, pre_tokenizers, decoders, trainers, processors, normalizers
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-logger = logging.getLogger(__name__)
 
-class TextDataset(Dataset):
-    def __init__(self, teacher_tokenizer, args, file_path=None):
-        postfix = file_path.split('/')[-1].split('.')[0]
+def BPE(texts, vocab_size, file_path, logger):
+    tokenizer = Tokenizer(models.BPE(unk_token="<unk>"))
+    tokenizer.normalizer = normalizers.Lowercase()
+    tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=True)
+    tokenizer.decoder = decoders.ByteLevel()
+    tokenizer.post_processor = processors.ByteLevel(trim_offsets=True)
+
+    trainer = trainers.BpeTrainer(
+        vocab_size=vocab_size,
+        initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
+        special_tokens=["<s>", "<pad>", "</s>", "<unk>"]
+    )
+
+    tokenizer.train_from_iterator(texts, trainer)
+    folder = "/".join(file_path.split("/")[:-1])
+    tokenizer_path = os.path.join(folder, "BPE" + "_" + str(vocab_size) + ".json")
+    tokenizer.save(tokenizer_path, pretty=True)
+    logger.info("Creating vocabulary to file %s", tokenizer_path)
+    
+    return tokenizer
+
+class DistilledDataset(Dataset):
+    def __init__(self, args, vocab_size, file_path, logger):
+        postfix = file_path.split("/")[-1].split(".")[0]
         self.examples = []
-        index_filename = file_path
-        logger.info("Creating features from file at %s ", index_filename)
-        url_to_code = {}
+        logger.info("Creating features from file at %s ", file_path)
 
-        folder = '/'.join(file_path.split('/')[:-1])
-        cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix+"_dis_"+str(args.vocab_size)))
+        url_to_code = {}
+        folder = "/".join(file_path.split("/")[:-1])
+        cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_dis_"+str(vocab_size)))
 
         try:
             self.examples = torch.load(cache_file_path)
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
-            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+            with open("/".join(file_path.split("/")[:-1])+"/data.jsonl") as f:
                 for line in f:
                     line = line.strip()
                     js = json.loads(line)
-                    url_to_code[js['idx']] = js['func']
+                    url_to_code[js["idx"]] = js["func"]
 
             data = []
-            with open(index_filename) as f:
+            with open(file_path) as f:
                 for line in f:
                     line = line.strip()
-                    url1, url2, label = line.split('\t')
+                    url1, url2, label = line.split("\t")
                     if url1 not in url_to_code or url2 not in url_to_code:
                         continue
-                    if label == '0':
+                    if label == "0":
                         label = 0
                     else:
                         label = 1
                     data.append((url1, url2, label))
 
-            if os.path.exists("./tokenizer_"+str(args.vocab_size)):
-                logger.info("Loading vocabulary from file %s", "./tokenizer_"+str(args.vocab_size))
-                tokenizer = ByteLevelBPETokenizer.from_file("./tokenizer_"+str(args.vocab_size)+"/vocab.json", "./tokenizer_"+str(args.vocab_size)+"/merges.txt")
+            tokenizer_path = os.path.join(folder, "BPE" + "_" + str(vocab_size) + ".json")
+            
+            if os.path.exists(tokenizer_path):
+                tokenizer = Tokenizer.from_file(tokenizer_path)
+                logger.info("Loading vocabulary from file %s", tokenizer_path)
             else:
-                logger.info("Creating vocabulary to file %s", "./tokenizer_"+str(args.vocab_size))
-                tokenizer = ByteLevelBPETokenizer(lowercase=True)
-
                 texts = []
                 for d in data:
                     texts.append(" ".join(url_to_code[d[0]].split()))
                     texts.append(" ".join(url_to_code[d[1]].split()))
+                tokenizer = BPE(texts, vocab_size, file_path, logger)
 
-                tokenizer.train_from_iterator(texts, vocab_size=args.vocab_size, show_progress=False, special_tokens=["<s>", "<pad>", "</s>", "<unk>"])
-                os.makedirs("./tokenizer_"+str(args.vocab_size), exist_ok=True)
-                tokenizer.save_model("./tokenizer_"+str(args.vocab_size))
-
+            preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+            assert len(data) == len(preds)
             mp_data = []
-            for d in data:
-                mp_data.append((d, tokenizer, teacher_tokenizer, args, url_to_code))
+            for d, pred in tqdm(zip(data, preds)):
+                mp_data.append((d, tokenizer, args, url_to_code, pred))
 
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
             self.examples = pool.map(preprocess, tqdm(mp_data, total=len(mp_data)))
             torch.save(self.examples, cache_file_path)
-
+        
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, i):
-        return torch.tensor(self.examples[i][0].input_ids), torch.tensor(self.examples[i][0].label), torch.tensor(self.examples[i][1].input_ids)
+        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label), torch.tensor(self.examples[i].pred)
 
-def load_and_cache_examples(args, tokenizer, evaluate=False, test=False):
-    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (
-        args.eval_data_file if evaluate else args.train_data_file))
-    return dataset
 
 def preprocess(item):
-    d, tokenizer, teacher_tokenizer, args, url_to_code = item
+    d, tokenizer, args, url_to_code, pred = item
     code1 = " ".join(url_to_code[d[0]].split())
     code2 = " ".join(url_to_code[d[1]].split())
     code1_ids = tokenizer.encode(code1).ids[:args.block_size-2]
@@ -98,11 +110,12 @@ def preprocess(item):
     source_tokens = code1 + code2
     source_ids = code1_ids + code2_ids
 
-    return (InputFeatures(source_tokens, source_ids, d[2]), convert_examples_to_features(teacher_tokenizer.tokenize(code1), teacher_tokenizer.tokenize(code2), d[2], teacher_tokenizer, args.block_size))
+    return InputFeatures(source_tokens, source_ids, d[2], pred)
+
 
 def set_seed(seed=42):
     random.seed(seed)
-    os.environ['PYHTONHASHSEED'] = str(seed)
+    os.environ["PYHTONHASHSEED"] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -110,32 +123,13 @@ def set_seed(seed=42):
 
 
 class InputFeatures(object):
-
     def __init__(self,
                  input_tokens,
                  input_ids,
-                 label
+                 label,
+                 pred
                  ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids
         self.label = label
-
-
-def convert_examples_to_features(code1_tokens, code2_tokens, label, tokenizer, block_size):
-
-    code1_tokens = code1_tokens[:block_size-2]
-    code1_tokens = [tokenizer.cls_token]+code1_tokens+[tokenizer.sep_token]
-    code2_tokens = code2_tokens[:block_size-2]
-    code2_tokens = [tokenizer.cls_token]+code2_tokens+[tokenizer.sep_token]
-
-    code1_ids = tokenizer.convert_tokens_to_ids(code1_tokens)
-    padding_length = block_size - len(code1_ids)
-    code1_ids += [tokenizer.pad_token_id]*padding_length
-
-    code2_ids = tokenizer.convert_tokens_to_ids(code2_tokens)
-    padding_length = block_size - len(code2_ids)
-    code2_ids += [tokenizer.pad_token_id]*padding_length
-
-    source_tokens = code1_tokens+code2_tokens
-    source_ids = code1_ids+code2_ids
-    return InputFeatures(source_tokens, source_ids, label)
+        self.pred = pred

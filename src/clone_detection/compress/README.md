@@ -135,3 +135,21 @@ do
         --seed 123456 2>&1| tee $MODEL_DIR/eval.log &
   done
 done 
+
+
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/valid_sampled.txt \
+    --eval_data_file=../../../data/clone_search/test_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 3 \
+    --model Transformer \
+    --input_dim 208 \
+    --hidden_dim 48 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 1 \
+    --eval_batch_size 64 \
+    --epochs 15 \
+    --seed 123456

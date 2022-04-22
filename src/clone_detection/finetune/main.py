@@ -151,6 +151,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     labels = np.concatenate(labels, 0)
 
     y_preds = logits[:, 1] > 0.5
+    np.save("../../../data/clone_search/preds_train_sampled", y_preds)
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)
     f1 = f1_score(labels, y_preds)
@@ -173,7 +174,7 @@ def main():
 
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
-    parser.add_argument("--output_dir", default="./", type=str,
+    parser.add_argument("--output_dir", default="../", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
