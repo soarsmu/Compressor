@@ -1,4 +1,3 @@
-import pickle
 import os
 import json
 import torch
@@ -10,43 +9,6 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
-
-class GATextDataset(Dataset):
-    def __init__(self, args, vocab_size, enocoding, file_path, logger):
-        postfix = file_path.split("/")[-1].split(".")[0]
-        self.examples = []
-
-        tokenizer = Token_Encoder(vocab_size, enocoding, file_path, logger).tokenizer
-        logger.info("Creating features from file at %s ", file_path)
-
-        folder = os.path.join("/".join(file_path.split("/")[:-1]), "search")
-        os.makedirs(folder, exist_ok=True)
-        cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_"+enocoding+"_"+str(vocab_size)))
-
-        try:
-            self.examples = torch.load(cache_file_path)
-            logger.info("Loading features from cached file %s", cache_file_path)
-        except:
-            data = []
-            with open(file_path) as f:
-                for line in f:
-                    data.append(json.loads(line.strip()))
-
-            for d in tqdm(data):
-                code = " ".join(d["func"].split())
-                source_ids = tokenizer.encode(code).ids[:args.block_size-2]
-                source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
-                padding_length = args.block_size - len(source_ids)
-                source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
-                self.examples.append(InputFeatures(code, source_ids, d["target"]))
-
-            torch.save(self.examples, cache_file_path)
-        
-    def __len__(self):
-        return len(self.examples)
-
-    def __getitem__(self, i):
-        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label)
 
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
