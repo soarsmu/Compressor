@@ -89,7 +89,7 @@ def evaluate(model, eval_dataloader):
     predict_all = np.concatenate(predict_all, 0)
     labels_all = np.concatenate(labels_all, 0)
 
-    preds = predict_all[:, 0] > 0.5
+    preds = predict_all[:, 1] > 0.5
     recall = recall_score(labels_all, preds)
     precision = precision_score(labels_all, preds)
     f1 = f1_score(labels_all, preds)

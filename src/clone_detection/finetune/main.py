@@ -114,7 +114,7 @@ def train(args, model, tokenizer):
                             os.makedirs(output_dir)
 
                         output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
-                        torch.save(model.module.state_dict(), output_dir)
+                        torch.save(model.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                     else:
                         logger.info("Model checkpoint are not saved")

@@ -64,6 +64,15 @@ class DistilledDataset(Dataset):
                     else:
                         label = 1
                     data.append((url1, url2, label))
+            
+            preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+            assert len(data) == len(preds)
+            mp_data = []
+            for d, pred in tqdm(zip(data, preds)):
+                mp_data.append((d, args, url_to_code, pred))
+
+            if "train_sampled" in postfix:
+                mp_data = random.sample(mp_data, int(len(mp_data)*0.1))
 
             tokenizer_path = os.path.join(folder, "BPE" + "_" + str(vocab_size) + ".json")
             
@@ -72,19 +81,19 @@ class DistilledDataset(Dataset):
                 logger.info("Loading vocabulary from file %s", tokenizer_path)
             else:
                 texts = []
-                for d in data:
-                    texts.append(" ".join(url_to_code[d[0]].split()))
-                    texts.append(" ".join(url_to_code[d[1]].split()))
+                for d in mp_data:
+                    texts.append(" ".join(url_to_code[d[0][0]].split()))
+                    texts.append(" ".join(url_to_code[d[0][1]].split()))
                 tokenizer = BPE(texts, vocab_size, file_path, logger)
 
-            preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
-            assert len(data) == len(preds)
-            mp_data = []
-            for d, pred in tqdm(zip(data, preds)):
-                mp_data.append((d, tokenizer, args, url_to_code, pred))
-
+            _mp_data = []
+            for d in mp_data:
+                lst = list(d)
+                lst.append(tokenizer)
+                _mp_data.append(tuple(lst))
+    
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            self.examples = pool.map(preprocess, tqdm(mp_data, total=len(mp_data)))
+            self.examples = pool.map(preprocess, tqdm(_mp_data, total=len(_mp_data)))
             torch.save(self.examples, cache_file_path)
         
     def __len__(self):
@@ -95,7 +104,7 @@ class DistilledDataset(Dataset):
 
 
 def preprocess(item):
-    d, tokenizer, args, url_to_code, pred = item
+    d, args, url_to_code, pred, tokenizer = item
     code1 = " ".join(url_to_code[d[0]].split())
     code2 = " ".join(url_to_code[d[1]].split())
     code1_ids = tokenizer.encode(code1).ids[:args.block_size-2]
