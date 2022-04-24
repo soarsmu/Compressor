@@ -13,7 +13,7 @@ from tokenizers import Tokenizer, models, pre_tokenizers, decoders, trainers, pr
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def BPE(texts, vocab_size, file_path, logger):
+def BPE(args, texts, vocab_size, file_path, logger):
     tokenizer = Tokenizer(models.BPE(unk_token="<unk>"))
     tokenizer.normalizer = normalizers.Lowercase()
     tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=True)
@@ -28,7 +28,7 @@ def BPE(texts, vocab_size, file_path, logger):
 
     tokenizer.train_from_iterator(texts, trainer)
     folder = "/".join(file_path.split("/")[:-1])
-    tokenizer_path = os.path.join(folder, "BPE" + "_" + str(vocab_size) + ".json")
+    tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(vocab_size) + ".json")
     tokenizer.save(tokenizer_path, pretty=True)
     logger.info("Creating vocabulary to file %s", tokenizer_path)
     
@@ -43,37 +43,40 @@ class DistilledDataset(Dataset):
         folder = "/".join(file_path.split("/")[:-1])
         cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_dis_"+str(vocab_size)))
 
-        try:
-            self.examples = torch.load(cache_file_path)
-            logger.info("Loading features from cached file %s", cache_file_path)
-        except:
-            data = []
-            with open(file_path) as f:
-                for line in f:
-                    data.append(json.loads(line.strip()))
-            tokenizer_path = os.path.join(folder, "BPE" + "_" + str(vocab_size) + ".json")
-            
-            if os.path.exists(tokenizer_path):
-                tokenizer = Tokenizer.from_file(tokenizer_path)
-                logger.info("Loading vocabulary from file %s", tokenizer_path)
-            else:
-                texts = [" ".join(d["func"].split()) for d in data]
-                tokenizer = BPE(texts, vocab_size, file_path, logger)
+        # try:
+        #     self.examples = torch.load(cache_file_path)
+        #     logger.info("Loading features from cached file %s", cache_file_path)
+        # except:
+        data = []
+        with open(file_path) as f:
+            for line in f:
+                data.append(json.loads(line.strip()))
+        tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(vocab_size) + ".json")
+        
+        if os.path.exists(tokenizer_path):
+            tokenizer = Tokenizer.from_file(tokenizer_path)
+            logger.info("Loading vocabulary from file %s", tokenizer_path)
+        else:
+            texts = [" ".join(d["func"].split()) for d in data]
+            tokenizer = BPE(args, texts, vocab_size, file_path, logger)
 
-            # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+        # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
 
-            for d in tqdm(data):
-                code = " ".join(d["func"].split())
-                source_ids = tokenizer.encode(code).ids[:args.block_size-2]
-                source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
-                padding_length = args.block_size - len(source_ids)
-                source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
-                if "train" in postfix:
+        for d in tqdm(data):
+            code = " ".join(d["func"].split())
+            source_ids = tokenizer.encode(code).ids[:args.block_size-2]
+            source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
+            padding_length = args.block_size - len(source_ids)
+            source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
+            if "train" in postfix:
+                # if d["target"] == -1:
+                #     self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"])))
+                # else:
                     self.examples.append((InputFeatures(code, source_ids, d["target"], d["pred"])))
-                else:
-                    self.examples.append((InputFeatures(code, source_ids, d["target"])))
+            else:
+                self.examples.append((InputFeatures(code, source_ids, d["target"])))
 
-            torch.save(self.examples, cache_file_path)
+            # torch.save(self.examples, cache_file_path)
         
     def __len__(self):
         return len(self.examples)

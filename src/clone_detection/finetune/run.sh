@@ -13,10 +13,10 @@ CUDA_VISIBLE_DEVICES=2,4 python main.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee ../logs/train.log
 
-CUDA_VISIBLE_DEVICES=3 python main.py \
+CUDA_VISIBLE_DEVICES=1 python main.py \
     --do_eval \
     --train_data_file=../../../data/clone_search/train_sampled.txt \
-    --eval_data_file=../../../data/clone_search/test_sampled.txt \
+    --eval_data_file=../../../data/clone_search/label_train.txt \
     --block_size 400 \
-    --eval_batch_size 64 \
+    --eval_batch_size 8 \
     --seed 123456 2>&1| tee ../logs/eval.log

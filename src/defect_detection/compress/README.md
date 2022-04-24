@@ -38,23 +38,126 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --seed 123456 2>&1| tee ../logs/eval_3_dis.log
 
 ```
+## 0.01 label
 CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --do_train \
-    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
     --eval_data_file=../../../data/defect_detection/valid.jsonl \
     --model_dir ../checkpoint \
     --size 0.01 \
+    --type label_train \
     --model biGRU \
-    --input_dim 128 \
-    --hidden_dim 80 \
-    --n_layers 10 \
-    --vocab_size 1000 \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
     --block_size 400 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 5e-4 \
     --epochs 15 \
-    --seed 123456 2>&1| tee ../logs/un_train_dis_001.log
+    --seed 123456 2>&1| tee ../logs/label_train_001.log
+
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type label_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/eval_label_train_001.log
+
+## 0.01 unlabel
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type unlabel_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_001.log
+
+## 0.01 mix
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type mixed_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_001.log
+
+
+## 0.01 label_dis
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type label_dis \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/label_dis_001.log
+
+
+## 0.01 mixed_dis
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type mixed_dis \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_001.log
 
 CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --do_eval \
