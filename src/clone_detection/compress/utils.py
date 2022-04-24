@@ -64,8 +64,11 @@ class DistilledDataset(Dataset):
                     else:
                         label = 1
                     data.append((url1, url2, label))
-            
-            preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+
+            # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+            preds = np.zeros(len(data)).astype(int).tolist()
+                        # print(len(preds))
+            # print(len(data))
             assert len(data) == len(preds)
             mp_data = []
             for d, pred in tqdm(zip(data, preds)):

@@ -123,7 +123,8 @@ def train(args, model, tokenizer):
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
-
+    params = sum(p.numel() for p in model.parameters())
+    logger.info("size %f", params)
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,

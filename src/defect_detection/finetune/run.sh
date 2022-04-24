@@ -16,7 +16,7 @@ CUDA_VISIBLE_DEVICES=3 python main.py \
 CUDA_VISIBLE_DEVICES=3 python main.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
-    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
     --block_size 400 \
     --eval_batch_size 64 \
     --seed 123456 2>&1| tee ../logs/eval.log

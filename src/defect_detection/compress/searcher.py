@@ -41,20 +41,25 @@ class Genome(object):
         self.hash = hashlib.md5(gene_string.encode("UTF-8")).hexdigest()
 
     def mutation(self, search_space):
-        mutated_gene = random.choice(list(self.gene_param.keys()))
-        current_value = self.gene_param[mutated_gene]
-        possible_choices = copy.deepcopy(search_space[mutated_gene])
-        possible_choices.remove(current_value)
-        self.gene_param[mutated_gene] = random.choice(possible_choices)
+        genome_len = len(self.gene_param)
+        loc = random.randint(0, genome_len - 1)
+
+        for x in range(genome_len):
+            if x >= loc:
+                mutated_gene = list(self.gene_param.keys())[x]
+                current_value = self.gene_param[mutated_gene]
+                possible_choices = copy.deepcopy(search_space[mutated_gene])
+                possible_choices.remove(current_value)
+                self.gene_param[mutated_gene] = random.choice(possible_choices)
         self.update_hash()
 
 
 class GA_search():
-    def __init__(self, args, search_space, desired_length=20, cross_chance=0.8):
+    def __init__(self, args, search_space, cross_chance=0.6):
         self.args = args
         self.search_space = search_space
         self.cross_chance = cross_chance
-        self.desired_length = desired_length
+        self.desired_length = args.population_size
         self.population = []
         self.best_gene = []
 
@@ -104,16 +109,15 @@ class GA_search():
 
         params = sum(p.numel() for p in model.parameters())
         size_diff = abs(self.args.target_size - params)*4/1e6
-        logger.info(flops/1e9 - size_diff)
-        logger.info("size %f", params*4.0/1e6)
-        logger.info("flops %f", flops/1e9)
+        # logger.info(flops/1e9 - size_diff)
+        # logger.info("size %f", params*4.0/1e6)
+        # logger.info("flops %f", flops/1e9)
 
         genome.fitness = flops/1e9 - size_diff
 
     def crossover_and_mutation(self, parents):
         children = []
         parent_1, parent_2 = parents
-
         if self.cross_chance > random.random():
             genome_len = len(self.search_space)
             recomb_loc = random.randint(1, genome_len - 1)
@@ -167,46 +171,55 @@ class GA_search():
             self.fitness(genome)
 
         graded_genome = [x for x in sorted(self.population, key=lambda x: x.fitness, reverse=True)]
-        logger.info(graded_genome[0].gene_param)
-        logger.info(graded_genome[0].fitness)
+        # logger.info([g.gene_param for g in graded_genome])
+        # logger.info(graded_genome[0].gene_param)
+        # logger.info(graded_genome[0].fitness)
         self.best_gene.append((graded_genome[0].gene_param, graded_genome[0].fitness))
         self.population = graded_genome[:self.args.population_size]
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--population_size", default=20, type=int)
-    parser.add_argument("--generation_size", default=20, type=int)
+    parser.add_argument("--population_size", default=50, type=int)
+    parser.add_argument("--generation_size", default=100, type=int)
     parser.add_argument("--target_size", default=0.01, type=float)
     parser.add_argument("--target_flops", default=33989813760, type=float)
 
     args = parser.parse_args()
     search_space = {
         "model_arch": ["biGRU", "biLSTM", "Transformer"],
-        "vocab_size": [*range(1000, 31000, 1000)],
-        "input_dim": [*range(16, 769, 16)],
-        "hidden_dim": [*range(16, 769, 16)],
-        "n_layers": [*range(1, 13)]
+        "vocab_size": [*range(1000, 26000, 1000)],
+        "input_dim": [*range(16, 512, 16)],
+        "hidden_dim": [*range(16, 512, 16)],
+        "n_layers": [*range(1, 7)]
     }
     params = 124647170
     args.target_size = params * args.target_size
     logger.info("***Start GA search for %d generations, %d population, target model size %d MB***" %
           (args.generation_size, args.population_size, args.target_size*4/1e6))
 
-    searcher = GA_search(args, search_space)
-    searcher.initialization()
+    best_candidates = []
+    for i in tqdm(range(5)):
+        searcher = GA_search(args, search_space)
+        searcher.initialization()
+        for gen in tqdm(range(args.generation_size)):
+            logger.info("***Start generate %d***" %(gen))
+            searcher.generation()
+        
+        for genome in searcher.population:
+            searcher.fitness(genome)
+        graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
 
-    for gen in tqdm(range(args.generation_size)):
-        logger.info("***Start generate %d***" %(gen))
-        searcher.generation()
+        logger.info(graded_genome[0].gene_param)
+        logger.info(graded_genome[0].fitness)
+        logger.info(searcher.best_gene)
+        best_candidates.append(graded_genome[0])
     
-    for genome in searcher.population:
-        searcher.fitness(genome)
-    graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
+    best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
+    for b in best_candidates:
+        logger.info(b.gene_param)
+    logger.info(best_candidates[0].gene_param)
 
-    logger.info(graded_genome[0].gene_param)
-    logger.info(graded_genome[0].fitness)
-    logger.info(searcher.best_gene)
 
 
 if __name__ == "__main__":

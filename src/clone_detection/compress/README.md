@@ -137,13 +137,13 @@ do
 done 
 
 
-CUDA_VISIBLE_DEVICES=2 python distillation.py \
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
     --train_data_file=../../../data/clone_search/train_sampled.txt \
     --eval_data_file=../../../data/clone_search/test_sampled.txt \
     --model_dir ../checkpoint \
     --size 3 \
-    --model biGRU \
+    --model Transformer \
     --input_dim 208 \
     --hidden_dim 48 \
     --n_layers 12 \
