@@ -29,14 +29,16 @@ class LSTM(nn.Module):
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
                             batch_first=True, 
-                            bidirectional=False)
-        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+                            bidirectional=False,
+                            dropout=0.2)
+        self.fc = nn.Linear(hidden_dim, n_labels)
 
     def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         outputs, (hidden, _) = self.lstm(embed)
         hidden = hidden.permute(1, 0, 2)
-        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        hidden = hidden[:, -1, :]
+        # hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
         logits = self.fc(hidden)
         prob = F.softmax(logits)
 
@@ -57,7 +59,8 @@ class biLSTM(nn.Module):
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
                             batch_first=True, 
-                            bidirectional=True)
+                            bidirectional=True,
+                            dropout=0.2)
         self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
     def forward(self, input_ids, labels=None):
@@ -85,14 +88,16 @@ class GRU(nn.Module):
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
                             batch_first=True, 
-                            bidirectional=False)
-        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+                            bidirectional=False,
+                            dropout=0.2)
+        self.fc = nn.Linear(hidden_dim, n_labels)
 
     def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         _, hidden = self.gru(embed)
         hidden = hidden.permute(1, 0, 2)
-        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        hidden = hidden[:, -1, :]
+        # hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
         logits = self.fc(hidden)
         prob = F.softmax(logits)
 
@@ -113,7 +118,8 @@ class biGRU(nn.Module):
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
                             batch_first=True, 
-                            bidirectional=True)
+                            bidirectional=True,
+                            dropout=0.2)
         self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
     def forward(self, input_ids, labels=None):
@@ -156,7 +162,7 @@ class Transformer(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(Transformer, self).__init__()
         self.embedding = nn.Embedding(vocab_size, input_dim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=8, dim_feedforward=hidden_dim, batch_first=True)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=8, dim_feedforward=hidden_dim, dropout=0.2)
         self.pos_encoder = PositionalEncoding(d_model=input_dim, vocab_size=vocab_size)
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, n_layers)
         self.fc = nn.Linear(input_dim, n_labels)
@@ -166,7 +172,7 @@ class Transformer(nn.Module):
         embed = self.embedding(input_ids) * math.sqrt(self.input_dim)
         embed = self.pos_encoder(embed)
         hidden = self.transformer_encoder(embed)
-        hidden = hidden.mean(dim=1)
+        hidden = hidden[:, 0, :]
         logits = self.fc(hidden)
         prob = F.softmax(logits)
 
@@ -178,10 +184,27 @@ class Transformer(nn.Module):
         else:
             return prob
 
+
 def loss_func(preds, labels, knowledge):
     labels = labels.long()
     knowledge = knowledge.long()
 
     loss = 0.5 * F.cross_entropy(preds, 1-labels) + 0.5 * F.cross_entropy(preds, 1-knowledge)
 
+    return loss
+
+
+def mix_loss_func(preds, labels, knowledge):
+    labels = labels.long()
+    knowledge = knowledge.long()
+
+    loss = 0
+    for p, l, k in zip(preds, labels, knowledge):
+        p = p.view(1, 2)
+        if l == -1.0:
+            loss += F.cross_entropy(p, (1-k).view(1))
+        else:
+            loss += 0.5 * F.cross_entropy(p, (1-l).view(1)) + 0.5 * F.cross_entropy(p, (1-k).view(1))
+
+    loss = loss/labels.size(0)
     return loss

@@ -42,9 +42,9 @@ def train(args, model, train_dataloader, eval_dataloader):
             texts = batch[0].to("cuda")
             labels = batch[1].to("cuda")
             knowledge = batch[2].to("cuda")
-            # loss, preds = model(texts, labels)
-            preds = model(texts)
-            loss = loss_func(preds, labels, knowledge)
+            loss, preds = model(texts, knowledge)
+            # preds = model(texts)
+            # loss = loss_func(preds, labels, knowledge)
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
@@ -58,12 +58,12 @@ def train(args, model, train_dataloader, eval_dataloader):
         dev_acc = dev_results["eval_acc"]
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
-            output_dir = os.path.join(args.model_dir, args.size, "best")
+            output_dir = os.path.join(args.model_dir, args.size, "best_mix")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
             logger.info("New best model found and saved.")
         else:
-            output_dir = os.path.join(args.model_dir, args.size, "recent")
+            output_dir = os.path.join(args.model_dir, args.size, "recent_mix")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
         
@@ -137,7 +137,7 @@ def main():
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--learning_rate", default=1e-3, type=float,
+    parser.add_argument("--learning_rate", default=5e-4, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
@@ -184,6 +184,9 @@ def main():
     model.to(args.device)
 
     if args.do_train:
+        # model_dir = os.path.join(args.model_dir, args.size, args.choice, "model.bin")
+        # model.load_state_dict(torch.load(model_dir))
+        # model.to(args.device)
         train(args, model, train_dataloader, eval_dataloader)
 
     if args.do_eval:

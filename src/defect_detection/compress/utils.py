@@ -60,15 +60,18 @@ class DistilledDataset(Dataset):
                 texts = [" ".join(d["func"].split()) for d in data]
                 tokenizer = BPE(texts, vocab_size, file_path, logger)
 
-            preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
+            # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
 
-            for d, pred in tqdm(zip(data, preds)):
+            for d in tqdm(data):
                 code = " ".join(d["func"].split())
                 source_ids = tokenizer.encode(code).ids[:args.block_size-2]
                 source_ids = [tokenizer.token_to_id("<s>")]+source_ids+[tokenizer.token_to_id("</s>")]
                 padding_length = args.block_size - len(source_ids)
                 source_ids += [tokenizer.token_to_id("<pad>")] * padding_length
-                self.examples.append((InputFeatures(code, source_ids, d["target"], pred)))
+                if "train" in postfix:
+                    self.examples.append((InputFeatures(code, source_ids, d["target"], d["pred"])))
+                else:
+                    self.examples.append((InputFeatures(code, source_ids, d["target"])))
 
             torch.save(self.examples, cache_file_path)
         
@@ -92,7 +95,7 @@ class InputFeatures(object):
                  input_tokens,
                  input_ids,
                  label,
-                 pred
+                 pred=0
                  ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids

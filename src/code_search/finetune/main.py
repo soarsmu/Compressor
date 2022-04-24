@@ -7,17 +7,18 @@ import numpy as np
 
 from tqdm import tqdm
 from model import Model
-from utils import set_seed, TextDataset
+from utils import set_seed, load_and_cache_examples
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
-from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
 
 def train(args, model, tokenizer):
-    train_dataset = TextDataset(tokenizer, args, args.train_data_file)
+
+    train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
         train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
@@ -29,16 +30,16 @@ def train(args, model, tokenizer):
     args.num_train_epochs = args.epoch
     model.to(args.device)
 
-    no_decay = ["bias", "LayerNorm.weight"]
+    no_decay = ['bias', 'LayerNorm.weight']
 
     optimizer_grouped_parameters = [
-        {"params": [p for n, p in model.named_parameters(
+        {'params': [p for n, p in model.named_parameters(
         ) if not any(nd in n for nd in no_decay)]}
     ]
 
     optimizer = AdamW(optimizer_grouped_parameters,
                       lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
                                                 num_training_steps=args.max_steps)
 
     if args.n_gpu > 1:
@@ -47,16 +48,14 @@ def train(args, model, tokenizer):
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d",
-                args.per_gpu_train_batch_size)
+    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
     logger.info("  Total train batch size  = %d", args.train_batch_size)
-    logger.info("  Gradient Accumulation steps = %d",
-                args.gradient_accumulation_steps)
+    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", args.max_steps)
 
     global_step = 0
     tr_loss, logging_loss, avg_loss, tr_nb, tr_num, train_loss = 0.0, 0.0, 0.0, 0, 0, 0
-    best_acc = 0
+    best_f1 = 0
     model.zero_grad()
 
     for idx in range(0, int(args.num_train_epochs)):
@@ -64,8 +63,8 @@ def train(args, model, tokenizer):
         tr_num = 0
         train_loss = 0
         for step, batch in enumerate(bar):
-            inputs = batch[0].to(args.device)        
-            labels = batch[1].to(args.device) 
+            inputs = batch[0].to(args.device)
+            labels = batch[1].to(args.device)
             model.train()
             loss, _ = model(inputs, labels)
 
@@ -90,8 +89,7 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                avg_loss = round(
-                    np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     logging_loss = tr_loss
@@ -103,19 +101,19 @@ def train(args, model, tokenizer):
                         results = evaluate(args, model, tokenizer, eval_when_training=True)
 
                     logger.info("  "+"*"*20)
-                    logger.info("  Current ACC:%s", round(results["eval_acc"], 4))
-                    logger.info("  Best ACC:%s", round(best_acc, 4))
+                    logger.info("  Current F1:%s", round(results["eval_f1"], 4))
+                    logger.info("  Best F1:%s", round(best_f1, 4))
                     logger.info("  "+"*"*20)
 
-                    if results["eval_acc"] >= best_acc:
-                        best_acc = results["eval_acc"]
+                    if results["eval_f1"] >= best_f1:
+                        best_f1 = results["eval_f1"]
 
-                        checkpoint_prefix = "checkpoint"
-                        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
+                        checkpoint_prefix = 'checkpoint'
+                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
-                        output_dir = os.path.join(output_dir, "{}".format("model.bin"))
+                        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
                         torch.save(model.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                     else:
@@ -124,7 +122,7 @@ def train(args, model, tokenizer):
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
 
-    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
+    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
                                  batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
@@ -143,27 +141,24 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
-        inputs = batch[0].to(args.device)        
-        label = batch[1].to(args.device) 
+        inputs = batch[0].to(args.device)
+        label = batch[1].to(args.device)
         with torch.no_grad():
-            logit = model(inputs)
+            _, logit = model(inputs, label)
             logits.append(logit.cpu().numpy())
-        labels.append(label.cpu().numpy())
-
+            labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
-    preds = logits[:, 0] > 0.5
-    np.save("../../../data/defect_detection/preds_valid", preds)
-    eval_acc = np.mean(labels==preds)
-    recall = recall_score(labels, preds)
-    precision = precision_score(labels, preds)
-    f1 = f1_score(labels, preds)
-    
+    y_preds = logits[:, 1] > 0.5
+    np.save("../../../data/clone_search/preds_train_sampled", y_preds)
+    recall = recall_score(labels, y_preds)
+    precision = precision_score(labels, y_preds)
+    f1 = f1_score(labels, y_preds)
     result = {
-        "eval_acc": eval_acc,
-        "eval_precision": float(precision),
+        "eval_acc": np.mean(labels==y_preds),
         "eval_recall": float(recall),
+        "eval_precision": float(precision),
         "eval_f1": float(f1)
     }
 
@@ -187,18 +182,18 @@ def main():
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-    parser.add_argument("--do_train", action="store_true",
+    parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
-    parser.add_argument("--do_eval", action="store_true",
+    parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--evaluate_during_training", action="store_true",
+    parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Run evaluation during training at each logging step.")
 
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
@@ -208,20 +203,18 @@ def main():
                         help="Max gradient norm.")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument("--logging_steps", type=int, default=50,
+    parser.add_argument('--logging_steps', type=int, default=50,
                         help="Log every X updates steps.")
-    parser.add_argument("--save_steps", type=int, default=50,
+    parser.add_argument('--save_steps', type=int, default=50,
                         help="Save checkpoint every X updates steps.")
-    parser.add_argument("--no_cuda", action="store_true",
+    parser.add_argument("--no_cuda", action='store_true',
                         help="Avoid using CUDA when available")
-    parser.add_argument("--seed", type=int, default=42,
+    parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument("--epoch", type=int, default=42,
+    parser.add_argument('--epoch', type=int, default=42,
                         help="random seed for initialization")
 
-    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = parser.parse_args()
-    logger.info(args)
 
     args.device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
@@ -230,13 +223,15 @@ def main():
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size = args.eval_batch_size//args.n_gpu
 
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+                        datefmt="%m/%d/%Y %H:%M:%S",
+                        level=logging.INFO)
     logger.info("Device: %s, n_gpu: %s", args.device, args.n_gpu)
 
     set_seed(args.seed)
 
     args.model_name = "microsoft/codebert-base"
     config = RobertaConfig.from_pretrained(args.model_name)
-    config.num_labels = 2
 
     tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
     tokenizer.do_lower_case = True
@@ -245,7 +240,7 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(RobertaForSequenceClassification.from_pretrained(args.model_name, config=config))
+    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 
@@ -254,7 +249,8 @@ def main():
 
     if args.do_eval:
         checkpoint_prefix = "checkpoint/model.bin"
-        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
+        output_dir = os.path.join(
+            args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         evaluate(args, model, tokenizer)

@@ -90,10 +90,10 @@ class GA_search():
 
         if model_arch == "biLSTM":
             model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        elif model_arch == "LSTM":
-            model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        elif model_arch == "GRU":
-            model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # elif model_arch == "LSTM":
+        #     model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # elif model_arch == "GRU":
+        #     model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
         elif model_arch == "biGRU":
             model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
         elif model_arch == "Transformer":
@@ -182,14 +182,14 @@ def main():
 
     args = parser.parse_args()
     search_space = {
-        "model_arch": ["GRU", "biGRU", "LSTM", "biLSTM", "Transformer"],
+        "model_arch": ["biGRU", "biLSTM", "Transformer"],
         "vocab_size": [*range(1000, 31000, 1000)],
         "input_dim": [*range(16, 769, 16)],
         "hidden_dim": [*range(16, 769, 16)],
         "n_layers": [*range(1, 13)]
     }
     params = 124647170
-    args.target_size = params * 0.01
+    args.target_size = params * args.target_size
     logger.info("***Start GA search for %d generations, %d population, target model size %d MB***" %
           (args.generation_size, args.population_size, args.target_size*4/1e6))
 

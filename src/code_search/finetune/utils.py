@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 import pickle
 import random
@@ -17,8 +16,7 @@ class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
         postfix = file_path.split('/')[-1].split('.')[0]
         self.examples = []
-        index_filename = file_path
-        logger.info("Creating features from file at %s ", index_filename)
+        logger.info("Creating features from file at %s ", file_path)
         url_to_code = {}
 
         folder = '/'.join(file_path.split('/')[:-1])
@@ -29,31 +27,17 @@ class TextDataset(Dataset):
             # self.examples = self.examples[]
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
-            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
-                for line in f:
-                    line = line.strip()
-                    js = json.loads(line)
-                    url_to_code[js['idx']] = js['func']
+            with open(file_path, "rb") as fp:
+                data = pickle.load(fp)
 
-            data = []
-            with open(index_filename) as f:
-                for line in f:
-                    line = line.strip()
-                    url1, url2, label = line.split('\t')
-                    if url1 not in url_to_code or url2 not in url_to_code:
-                        continue
-                    if label == '0':
-                        label = 0
-                    else:
-                        label = 1
-                    data.append((url1, url2, label, tokenizer,
-                            args, url_to_code))
-
+            mp_data = []
+            for d in data:
+                mp_data.append((d, tokenizer, args))
             # if "test" not in postfix:
-            # data = random.sample(data, int(len(data)*0.01))
+            # mp_data = random.sample(mp_data, int(len(mp_data)*0.01))
 
             pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            self.examples = pool.map(get_example, tqdm(data, total=len(data)))
+            self.examples = pool.map(get_example, tqdm(mp_data, total=len(mp_data)))
             torch.save(self.examples, cache_file_path)
 
     def __len__(self):
@@ -111,16 +95,16 @@ def convert_examples_to_features(code1_tokens, code2_tokens, label, tokenizer, a
 
 
 def get_example(item):
-    url1, url2, label, tokenizer, args, url_to_code = item
+    (code_1, code_2, label), tokenizer, args = item
 
     try:
-        code = " ".join(url_to_code[url1].split())
+        code = " ".join(code_1.split())
     except:
         code = ""
     code1 = tokenizer.tokenize(code)
 
     try:
-        code = " ".join(url_to_code[url2].split())
+        code = " ".join(code_2.split())
     except:
         code = ""
     code2 = tokenizer.tokenize(code)
