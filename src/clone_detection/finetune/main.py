@@ -121,7 +121,6 @@ def train(args, model, tokenizer):
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
-
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
@@ -248,10 +247,17 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
+        from thop import profile
+        inputs = torch.randint(config.vocab_size, (1, 800))
+        flops, _ = profile(model, (inputs, ), verbose=False)
+        logger.info(flops)
+        params = sum(p.numel() for p in model.parameters())
+        logger.info("size %f", params)
+        # exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(
             args.output_dir, "{}".format(checkpoint_prefix))
-        model.load_state_dict(torch.load(output_dir))
+        model.load_state_dict({k.replace("module.", ""):v for k, v in torch.load(output_dir).items()}, strict=False)
         model.to(args.device)
         evaluate(args, model, tokenizer)
 
