@@ -7,7 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from utils import set_seed, DistilledDataset
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup
@@ -42,9 +42,10 @@ def train(args, model, train_dataloader, eval_dataloader):
             texts = batch[0].to("cuda")
             labels = batch[1].to("cuda")
             knowledge = batch[2].to("cuda")
-            # loss, preds = model(texts, labels)
-            preds = model(texts)
-            loss = loss_func(preds, labels, knowledge)
+            # print(labels)
+            loss, preds = model(texts, labels)
+            # preds = model(texts)
+            # loss = loss_func(preds, labels, knowledge)
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
@@ -58,12 +59,12 @@ def train(args, model, train_dataloader, eval_dataloader):
         dev_acc = dev_results["eval_acc"]
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
-            output_dir = os.path.join(args.model_dir, args.size, "best")
+            output_dir = os.path.join(args.model_dir, args.size, args.type, "best")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
             logger.info("New best model found and saved.")
         else:
-            output_dir = os.path.join(args.model_dir, args.size, "recent")
+            output_dir = os.path.join(args.model_dir, args.size, args.type, "recent")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(output_dir, "model.bin"))
         
@@ -101,6 +102,58 @@ def evaluate(model, eval_dataloader):
     }
     return results
 
+def evaluate_mrr(model, eval_dataloader):
+    model.eval()
+    predict_all = []
+    labels_all = []
+    ranks = []
+    top5 = 0
+    top10 = 0
+    top20 = 0
+    num_batch = 0
+    with torch.no_grad():
+        bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+        bar.set_description("Evaluation")
+        for batch in bar:
+            texts = batch[0].to("cuda")        
+            label = batch[1].to("cuda")
+            prob = model(texts)
+
+            predict_all.append(prob.cpu().numpy())
+            labels_all.append(label.cpu().numpy())
+            correct_score = predict_all[0][0][1]
+            # print(predict_all, correct_score)
+            # exit()
+            scores = np.array([pred[1] for pred in predict_all[0]])
+            rank = np.sum(scores >= correct_score)
+            if int(rank) <=20:
+                top20 += 1
+            if int(rank) <=10:
+                top10 += 1
+            if int(rank) <=5:
+                top5 += 1
+
+            ranks.append(rank)
+    mean_mrr = np.mean(1.0 / np.array(ranks))
+    print('num of all ranks:', len(ranks))
+    print("mrr: {}".format(mean_mrr))
+    print ('top5:', top5)
+    print ('top10:', top10)
+    print ('top20:', top20)
+    predict_all = np.concatenate(predict_all, 0)
+    labels_all = np.concatenate(labels_all, 0)
+
+    preds = predict_all[:, 1] > 0.5
+    recall = recall_score(labels_all, preds)
+    precision = precision_score(labels_all, preds)
+    f1 = f1_score(labels_all, preds)
+    results = {
+        "eval_acc": np.mean(labels_all==preds),
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1)
+    }
+    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -121,6 +174,8 @@ def main():
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--choice", default="best", type=str,
                         help="Model to test")
+    parser.add_argument("--type", default="label_train", type=str,
+                        help="Model training type")
     parser.add_argument("--size", default="3", type=str,
                         help="Model size")                 
     parser.add_argument("--vocab_size", default=10000, type=int,
@@ -181,16 +236,19 @@ def main():
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
     
+    # for i in eval_dataloader:
+    #     print(i)
+    # exit()
     model.to(args.device)
 
     if args.do_train:
         train(args, model, train_dataloader, eval_dataloader)
 
     if args.do_eval:
-        model_dir = os.path.join(args.model_dir, args.size, args.choice, "model.bin")
+        model_dir = os.path.join(args.model_dir, args.size, args.type, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
-        eval_res = evaluate(model, eval_dataloader)
+        eval_res = evaluate_mrr(model, eval_dataloader)
         logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 
 

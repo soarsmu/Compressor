@@ -51,7 +51,7 @@ class DistilledDataset(Dataset):
                 line = line.strip()
                 js = json.loads(line)
                 url_to_code[js["idx"]] = js["func"]
-
+ 
         data = []
         with open(file_path) as f:
             for line in f:
@@ -80,6 +80,7 @@ class DistilledDataset(Dataset):
 
                 data.append((url1, url2, label, pred, args, url_to_code))
 
+        # data = data[: 4000]
         # # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
         # preds = np.zeros(len(data)).astype(int).tolist()
         #             # print(len(preds))
@@ -89,9 +90,9 @@ class DistilledDataset(Dataset):
         # for d in data:
         #     mp_data.append((d, args, url_to_code, pred))
 
-        # if "train_sampled" in postfix:
-        #     mp_data = random.sample(mp_data, int(len(mp_data)*0.1))
-
+        if "train" in postfix:
+            data = random.sample(data, int(len(data)*0.1))
+        # print(data)
         tokenizer_path = os.path.join(folder, "BPE" + "_"+args.type+"_" + str(vocab_size) + ".json")
         
         if os.path.exists(tokenizer_path):

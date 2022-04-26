@@ -72,7 +72,7 @@ class DistilledDataset(Dataset):
                 # if d["target"] == -1:
                 #     self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"])))
                 # else:
-                    self.examples.append((InputFeatures(code, source_ids, d["target"], d["pred"])))
+                    self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"])))
             else:
                 self.examples.append((InputFeatures(code, source_ids, d["target"])))
 

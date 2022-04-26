@@ -58,6 +58,84 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/label_train_001.log
 
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/label_train_005.log &
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_label_train_005.log
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/label_train_01.log &
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_label_train_01.log
+
 CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/label_train.jsonl \
@@ -97,6 +175,84 @@ CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/unlabel_train_001.log
 
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-3 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_005.log & 
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_005.log
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_01.log & 
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_01.log
+
 ## 0.01 mix
 CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
@@ -116,6 +272,84 @@ CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --learning_rate 5e-4 \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/mixed_train_001.log
+
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_005.log &
+
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_mixed_train_005.log
+
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_01.log &
+
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_mixed_train_01.log
 
 
 ## 0.01 label_dis
@@ -139,6 +373,85 @@ CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --seed 123456 2>&1| tee ../logs/label_dis_001.log
 
 
+CUDA_VISIBLE_DEVICES=6 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/label_dis_005.log &
+
+
+CUDA_VISIBLE_DEVICES=6 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_label_dis_005.log
+
+CUDA_VISIBLE_DEVICES=6 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/label_dis_01.log &
+
+CUDA_VISIBLE_DEVICES=6 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_label_dis_01.log
+
 ## 0.01 mixed_dis
 CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
@@ -158,6 +471,84 @@ CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --learning_rate 5e-4 \
     --epochs 15 \
     --seed 123456 2>&1| tee ../logs/mixed_dis_001.log
+
+CUDA_VISIBLE_DEVICES=7 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_005.log & 
+
+CUDA_VISIBLE_DEVICES=7 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_mixed_dis_005.log
+
+CUDA_VISIBLE_DEVICES=7 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_01.log &
+
+CUDA_VISIBLE_DEVICES=7 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/mixed_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 15 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_mixed_dis_01.log
 
 CUDA_VISIBLE_DEVICES=1 python distillation.py \
     --do_eval \

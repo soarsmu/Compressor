@@ -123,8 +123,6 @@ def train(args, model, tokenizer):
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
-    params = sum(p.numel() for p in model.parameters())
-    logger.info("size %f", params)
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
@@ -257,6 +255,8 @@ def main():
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
+        params = sum(p.numel() for p in model.parameters())
+        logger.info("size %f", params)
         model.to(args.device)
         evaluate(args, model, tokenizer)
 

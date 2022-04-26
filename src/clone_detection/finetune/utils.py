@@ -39,7 +39,7 @@ class TextDataset(Dataset):
         with open(index_filename) as f:
             for line in f:
                 line = line.strip()
-                url1, url2, label = line.split('\t')
+                url1, url2, label, p = line.split('\t')
                 if url1 not in url_to_code or url2 not in url_to_code:
                     continue
                 if label == '0':
@@ -48,7 +48,7 @@ class TextDataset(Dataset):
                     label = 1
                 data.append((url1, url2, label, tokenizer,
                         args, url_to_code))
-
+        data = data[: 4000]
         # if "test" not in postfix:
         # data = random.sample(data, int(len(data)*0.01))
 

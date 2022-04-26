@@ -1,155 +1,358 @@
 # GRU 50MB: 256 384 4 14000
 # GRU 20MB: 256 256 3 8000
 # GRU 3MB: 128 256 1 2000
-# TODO: LSTM and CNN
-declare -a alphas=(1.0 0.95 0.9 0.85 0.8 0.75 0.7 0.65 0.6 0.55 0.5 0.45 0.4 0.35 0.3 0.25 0.2 0.15 0.1 0.05 0.0)
+# TODO: LSTM 
 
-declare -a alphas=(1.0)
 
-for loss in "ce"
-do
-  for alpha in ${alphas[@]}
-  do
-    MODEL_DIR=./checkpoint/Roberta/$loss/50/$alpha
-    mkdir -p $MODEL_DIR
-    CUDA_VISIBLE_DEVICES=0 python distill.py \
-        --do_train \
-        --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-        --eval_data_file=../../../../data/clone_detection/BigCloneBench/valid.txt \
-        --model_dir $MODEL_DIR \
-        --std_model Roberta \
-        --loss_func $loss \
-        --alpha $alpha \
-        --input_dim 512 \
-        --hidden_dim 768 \
-        --n_layers 2 \
-        --vocab_size 14000 \
-        --block_size 400 \
-        --train_batch_size 16 \
-        --eval_batch_size 64 \
-        --epochs 25 \
-        --seed 123456 2>&1| tee $MODEL_DIR/train.log 
 
-    CUDA_VISIBLE_DEVICES=2 python distill.py \
-        --do_eval \
-        --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-        --eval_data_file=../../../../data/clone_detection/BigCloneBench/test.txt \
-        --model_dir $MODEL_DIR \
-        --std_model Roberta \
-        --input_dim 512 \
-        --hidden_dim 768 \
-        --n_layers 2 \
-        --vocab_size 14000 \
-        --block_size 400 \
-        --train_batch_size 16 \
-        --eval_batch_size 64 \
-        --choice best \
-        --seed 123456 2>&1| tee $MODEL_DIR/eval.log 
-  done
-done 
+## label
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type label_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_train_001.log &
 
-declare -a alphas=(0.5 1.0 0.9)
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_train_005.log &
 
-for loss in "ce"
-do
-  for alpha in ${alphas[@]}
-  do
-    MODEL_DIR=./checkpoint//$loss/20/$alpha
-    mkdir -p $MODEL_DIR
-    # CUDA_VISIBLE_DEVICES=6 python distill.py \
-    #     --do_train \
-    #     --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-    #     --eval_data_file=../../../../data/clone_detection/BigCloneBench/valid.txt \
-    #     --model_dir $MODEL_DIR \
-    #     --std_model biGRU \
-    #     --loss_func $loss \
-    #     --alpha $alpha \
-    #     --input_dim 256 \
-    #     --hidden_dim 256 \
-    #     --n_layers 3 \
-    #     --vocab_size 8000 \
-    #     --block_size 400 \
-    #     --train_batch_size 16 \
-    #     --eval_batch_size 64 \
-    #     --epochs 25 \
-    #     --seed 123456 2>&1| tee $MODEL_DIR/train.log &
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_train_01.log &
 
-    CUDA_VISIBLE_DEVICES=4 python distill.py \
-        --do_eval \
-        --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-        --eval_data_file=../../../../data/clone_detection/BigCloneBench/test.txt \
-        --model_dir $MODEL_DIR \
-        --std_model biGRU \
-        --input_dim 256 \
-        --hidden_dim 256 \
-        --n_layers 3 \
-        --vocab_size 8000 \
-        --block_size 400 \
-        --train_batch_size 16 \
-        --eval_batch_size 64 \
-        --choice best \
-        --seed 123456 2>&1| tee $MODEL_DIR/eval.log &
-  done
-done 
 
-declare -a alphas=(0.5 1.0 0.9)
 
-for loss in "ce"
-do
-  for alpha in ${alphas[@]}
-  do
-    MODEL_DIR=./checkpoint//$loss/3/$alpha
-    mkdir -p $MODEL_DIR
-    # CUDA_VISIBLE_DEVICES=7 python distill.py \
-    #     --do_train \
-    #     --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-    #     --eval_data_file=../../../../data/clone_detection/BigCloneBench/valid.txt \
-    #     --model_dir $MODEL_DIR \
-    #     --std_model biGRU \
-    #     --loss_func $loss \
-    #     --alpha $alpha \
-    #     --input_dim 128 \
-    #     --hidden_dim 256 \
-    #     --n_layers 1 \
-    #     --vocab_size 2000 \
-    #     --block_size 400 \
-    #     --train_batch_size 16 \
-    #     --eval_batch_size 64 \
-    #     --epochs 25 \
-    #     --seed 123456 2>&1| tee $MODEL_DIR/train.log &
+## unlabel
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type unlabel_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_001.log &
 
-    CUDA_VISIBLE_DEVICES=5 python distill.py \
-        --do_eval \
-        --train_data_file=../../../../data/clone_detection/BigCloneBench/train.txt \
-        --eval_data_file=../../../../data/clone_detection/BigCloneBench/test.txt \
-        --model_dir $MODEL_DIR \
-        --std_model biGRU \
-        --input_dim 128 \
-        --hidden_dim 256 \
-        --n_layers 1 \
-        --vocab_size 2000 \
-        --block_size 400 \
-        --train_batch_size 16 \
-        --eval_batch_size 64 \
-        --choice best \
-        --seed 123456 2>&1| tee $MODEL_DIR/eval.log &
-  done
-done 
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/test_mrr.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type unlabel_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 10 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --choice best \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_001.log
 
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/test_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 2 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_005.log &
+
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/test_mrr.txt \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 5 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_005.log
+
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_01.log &
+
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/test_mrr.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type unlabel_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 10 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --choice recent \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_01.log
+
+## mix
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type mixed_train \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_001.log &
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_005.log & 
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_train \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_train_01.log &
+
+## label_dis
+CUDA_VISIBLE_DEVICES=5 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type label_dis \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_dis_001.log &
+
+CUDA_VISIBLE_DEVICES=5 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.05 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_dis_005.log & 
+
+CUDA_VISIBLE_DEVICES=5 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/label_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type label_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/label_dis_01.log &
+
+
+###### mixed_dis
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type mixed_dis \
+    --model biGRU \
+    --input_dim 16 \
+    --hidden_dim 112 \
+    --n_layers 6 \
+    --vocab_size 2000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_001.log &
 
 CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
-    --train_data_file=../../../data/clone_search/train_sampled.txt \
-    --eval_data_file=../../../data/clone_search/test_sampled.txt \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
     --model_dir ../checkpoint \
-    --size 3 \
-    --model Transformer \
-    --input_dim 208 \
-    --hidden_dim 48 \
-    --n_layers 12 \
-    --vocab_size 1000 \
+    --size 0.05 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 272 \
+    --n_layers 4 \
+    --vocab_size 7000 \
     --block_size 400 \
-    --train_batch_size 32 \
+    --train_batch_size 16 \
     --eval_batch_size 64 \
-    --epochs 15 \
-    --seed 123456
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_005.log &
+
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/mixed_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.1 \
+    --type mixed_dis \
+    --model biLSTM \
+    --input_dim 32 \
+    --hidden_dim 464 \
+    --n_layers 3 \
+    --vocab_size 8000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 5e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/mixed_dis_01.log &
