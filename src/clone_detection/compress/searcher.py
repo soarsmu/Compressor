@@ -9,7 +9,9 @@ import numpy as np
 
 from tqdm import tqdm
 from thop import profile
-from models import LSTM, biLSTM, GRU, biGRU, Transformer
+from torchinfo import summary
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, Model
+from transformers import RobertaConfig, RobertaModel
 
 warnings.filterwarnings("ignore")
 
@@ -33,8 +35,8 @@ class Genome(object):
             self.update_hash()
     
     def update_hash(self):
-        gene_string = str(self.gene_param["model_arch"])+ \
-                        str(self.gene_param["vocab_size"]) + \
+        # gene_string = # str(self.gene_param["model_arch"])+ \
+        gene_string = str(self.gene_param["vocab_size"]) + \
                         str(self.gene_param["input_dim"]) + \
                         str(self.gene_param["hidden_dim"]) + \
                         str(self.gene_param["n_layers"]) 
@@ -86,32 +88,43 @@ class GA_search():
             count += 1
     
     def fitness(self, genome):
-        model_arch = genome.gene_param["model_arch"]
+        # model_arch = genome.gene_param["model_arch"]
         vocab_size = genome.gene_param["vocab_size"]
         input_dim = genome.gene_param["input_dim"]
         hidden_dim = genome.gene_param["hidden_dim"]
         n_layers = genome.gene_param["n_layers"]
         n_labels = 2
 
-        if model_arch == "biLSTM":
-            model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # elif model_arch == "LSTM":
-        #     model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # elif model_arch == "GRU":
-        #     model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        elif model_arch == "biGRU":
-            model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        elif model_arch == "Transformer":
-            model = Transformer(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+        config.num_labels = n_labels
+        config.hidden_size = hidden_dim
+        config.max_position_embeddings = 400 + 2
+        config.vocab_size = vocab_size
+        config.num_attention_heads = 8
+        config.num_hidden_layers = n_layers
+        model = Model(RobertaModel(config=config), config)
+
+        # if model_arch == "biLSTM":
+        #     model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # # elif model_arch == "LSTM":
+        # #     model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # # elif model_arch == "GRU":
+        # #     model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # elif model_arch == "biGRU":
+        #     model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
+        # elif model_arch == "Transformer":
+        #     model = Transformer(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
 
         inputs = torch.randint(vocab_size, (1, 800))
         flops, _ = profile(model, (inputs, ), verbose=False)
+        # s = summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'], verbose=0)
+        # flops = s.total_mult_adds
 
         params = sum(p.numel() for p in model.parameters())
         size_diff = abs(self.args.target_size - params)*4/1e6
-        # logger.info(flops/1e9 - size_diff)
-        # logger.info("size %f", params*4.0/1e6)
-        # logger.info("flops %f", flops/1e9)
+        logger.info(flops/1e9 - size_diff)
+        logger.info("size %f", params*4.0/1e6)
+        logger.info("flops %f", flops/1e9)
 
         genome.fitness = flops/1e9 - size_diff
 
@@ -180,14 +193,14 @@ class GA_search():
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--population_size", default=50, type=int)
-    parser.add_argument("--generation_size", default=100, type=int)
+    parser.add_argument("--population_size", default=20, type=int)
+    parser.add_argument("--generation_size", default=20, type=int)
     parser.add_argument("--target_size", default=0.01, type=float)
     parser.add_argument("--target_flops", default=67980805632.0, type=float)
 
     args = parser.parse_args()
     search_space = {
-        "model_arch": ["biGRU", "biLSTM", "Transformer"],
+        # "model_arch": ["biGRU", "biLSTM", "Transformer"],
         "vocab_size": [*range(1000, 26000, 1000)],
         "input_dim": [*range(16, 512, 16)],
         "hidden_dim": [*range(16, 512, 16)],

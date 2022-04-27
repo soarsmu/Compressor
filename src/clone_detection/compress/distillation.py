@@ -7,10 +7,10 @@ import numpy as np
 
 from tqdm import tqdm
 from utils import set_seed, DistilledDataset
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
-from transformers import AdamW, get_linear_schedule_with_warmup
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def train(args, model, train_dataloader, eval_dataloader):
             # preds = model(texts)
             # loss = loss_func(preds, labels, knowledge)
             loss.backward()
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
             tr_num += 1
 
@@ -216,16 +216,29 @@ def main():
 
     n_labels = 2
 
-    if args.model == "LSTM":
-        model = LSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    elif args.model == "biLSTM":
-        model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    elif args.model == "GRU":
-        model = GRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    elif args.model == "biGRU":
-        model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    elif args.model == "Transformer":
-        model = Transformer(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    # if args.model == "LSTM":
+    #     model = LSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    # elif args.model == "biLSTM":
+    #     model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    # elif args.model == "GRU":
+    #     model = GRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    # elif args.model == "biGRU":
+    #     model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    # elif args.model == "Transformer":
+    #     model = Transformer(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+
+    # hidden_dim = 768
+    n_labels = 2
+    # n_layers = 2
+
+    config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+    config.num_labels = n_labels
+    config.hidden_size = args.hidden_dim
+    config.max_position_embeddings = args.block_size + 2
+    config.vocab_size = args.vocab_size
+    config.num_attention_heads = 8
+    config.num_hidden_layers = args.n_layers
+    model = Model(RobertaModel(config=config), config)
 
     if args.do_train:
         train_dataset = DistilledDataset(args, args.vocab_size, args.train_data_file, logger)

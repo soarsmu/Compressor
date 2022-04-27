@@ -90,8 +90,8 @@ class DistilledDataset(Dataset):
         # for d in data:
         #     mp_data.append((d, args, url_to_code, pred))
 
-        if "train" in postfix:
-            data = random.sample(data, int(len(data)*0.1))
+        # if "train" in postfix:
+        #     data = random.sample(data, int(len(data)*0.1))
         # print(data)
         tokenizer_path = os.path.join(folder, "BPE" + "_"+args.type+"_" + str(vocab_size) + ".json")
         

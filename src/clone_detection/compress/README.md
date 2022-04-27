@@ -66,6 +66,27 @@ CUDA_VISIBLE_DEVICES=1 python distillation.py \
 
 
 ## unlabel
+
+CUDA_VISIBLE_DEVICES=2 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/clone_search/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type unlabel_train \
+    --model biGRU \
+    --input_dim 432 \
+    --hidden_dim 32 \
+    --n_layers 5 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_001.log
+
+
 CUDA_VISIBLE_DEVICES=2 python distillation.py \
     --do_train \
     --train_data_file=../../../data/clone_search/unlabel_train.txt \
@@ -105,7 +126,7 @@ CUDA_VISIBLE_DEVICES=2 python distillation.py \
     --choice best \
     --seed 123456 2>&1| tee ../logs/eval_unlabel_train_001.log
 
-CUDA_VISIBLE_DEVICES=2 python distillation.py \
+CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
     --train_data_file=../../../data/clone_search/unlabel_train.txt \
     --eval_data_file=../../../data/clone_search/test_sampled.txt \
@@ -120,7 +141,7 @@ CUDA_VISIBLE_DEVICES=2 python distillation.py \
     --block_size 400 \
     --train_batch_size 2 \
     --eval_batch_size 64 \
-    --learning_rate 5e-4 \
+    --learning_rate 1e-4 \
     --epochs 10 \
     --seed 123456 2>&1| tee ../logs/unlabel_train_005.log &
 

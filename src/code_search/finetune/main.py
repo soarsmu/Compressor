@@ -253,6 +253,8 @@ def main():
             args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
+        print(model)
+        exit()
         evaluate(args, model, tokenizer)
 
 

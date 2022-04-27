@@ -156,6 +156,26 @@ CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --seed 123456 2>&1| tee ../logs/eval_label_train_001.log
 
 ## 0.01 unlabel
+
+CUDA_VISIBLE_DEVICES=4 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 0.01 \
+    --type unlabel_train \
+    --model biGRU \
+    --input_dim 432 \
+    --hidden_dim 32 \
+    --n_layers 5 \
+    --vocab_size 7000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 15 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_001.log
+
 CUDA_VISIBLE_DEVICES=3 python distillation.py \
     --do_train \
     --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
