@@ -75,10 +75,11 @@ CUDA_VISIBLE_DEVICES=2 python distillation.py \
     --size 0.01 \
     --type unlabel_train \
     --model biGRU \
-    --input_dim 432 \
-    --hidden_dim 32 \
-    --n_layers 5 \
-    --vocab_size 7000 \
+    --attention_heads 16 \
+    --hidden_dim 80 \
+    --intermediate_size 832 \
+    --n_layers 6 \
+    --vocab_size 3000 \
     --block_size 400 \
     --train_batch_size 16 \
     --eval_batch_size 64 \

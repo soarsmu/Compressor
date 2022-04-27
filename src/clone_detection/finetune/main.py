@@ -311,11 +311,17 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
-        from thop import profile
-        inputs = torch.randint(config.vocab_size, (1, 800))
-        flops, _ = profile(model, (inputs, ), verbose=False)
-        logger.info(flops)
+        # print(model)
+        from torchinfo import summary
+        # inputs = torch.randint(config.vocab_size, (1, 800))
+        # flops, _ = profile(model, (inputs, ), verbose=False)
+
+        summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'])
         params = sum(p.numel() for p in model.parameters())
+        print(params)
+        exit()
+        # logger.info(flops)
+        
         logger.info("size %f", params)
         # exit()
         checkpoint_prefix = "checkpoint/model.bin"

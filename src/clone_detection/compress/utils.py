@@ -40,7 +40,7 @@ class DistilledDataset(Dataset):
 
         url_to_code = {}
         folder = "/".join(file_path.split("/")[:-1])
-        cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_dis_"+str(vocab_size)))
+        # cache_file_path = os.path.join(folder, "cached_{}.bin".format(postfix+"_dis_"+str(vocab_size)))
 
         # try:
         #     self.examples = torch.load(cache_file_path)

@@ -1,17 +1,12 @@
 import copy
-import torch
 import random
 import logging
 import hashlib
 import warnings
 import argparse
-import numpy as np
 
 from tqdm import tqdm
-from thop import profile
-from torchinfo import summary
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, Model
-from transformers import RobertaConfig, RobertaModel
+from flops import TransformerHparams
 
 warnings.filterwarnings("ignore")
 
@@ -35,9 +30,9 @@ class Genome(object):
             self.update_hash()
     
     def update_hash(self):
-        # gene_string = # str(self.gene_param["model_arch"])+ \
-        gene_string = str(self.gene_param["vocab_size"]) + \
-                        str(self.gene_param["input_dim"]) + \
+        gene_string = str(self.gene_param["intermediate_size"])+ \
+                        str(self.gene_param["vocab_size"]) + \
+                        str(self.gene_param["attention_heads"]) + \
                         str(self.gene_param["hidden_dim"]) + \
                         str(self.gene_param["n_layers"]) 
         self.hash = hashlib.md5(gene_string.encode("UTF-8")).hexdigest()
@@ -88,39 +83,20 @@ class GA_search():
             count += 1
     
     def fitness(self, genome):
-        # model_arch = genome.gene_param["model_arch"]
+        # "vocab_size": [*range(1000, 26000, 1000)],
+        # "attention_heads": [2, 4, 8, 16],
+        # "hidden_dim": [*range(16, 512, 16)],
+        # "intermediate_size": [*range(64, 2048, 64)],
+        # "n_layers": [*range(1, 7)]
         vocab_size = genome.gene_param["vocab_size"]
-        input_dim = genome.gene_param["input_dim"]
+        attention_heads = genome.gene_param["attention_heads"]
         hidden_dim = genome.gene_param["hidden_dim"]
+        intermediate_size = genome.gene_param["intermediate_size"]
         n_layers = genome.gene_param["n_layers"]
-        n_labels = 2
-
-        config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-        config.num_labels = n_labels
-        config.hidden_size = hidden_dim
-        config.max_position_embeddings = 400 + 2
-        config.vocab_size = vocab_size
-        config.num_attention_heads = 8
-        config.num_hidden_layers = n_layers
-        model = Model(RobertaModel(config=config), config)
-
-        # if model_arch == "biLSTM":
-        #     model = biLSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # # elif model_arch == "LSTM":
-        # #     model = LSTM(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # # elif model_arch == "GRU":
-        # #     model = GRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # elif model_arch == "biGRU":
-        #     model = biGRU(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-        # elif model_arch == "Transformer":
-        #     model = Transformer(vocab_size, input_dim, hidden_dim, n_labels, n_layers)
-
-        inputs = torch.randint(vocab_size, (1, 800))
-        flops, _ = profile(model, (inputs, ), verbose=False)
-        # s = summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'], verbose=0)
-        # flops = s.total_mult_adds
-
-        params = sum(p.numel() for p in model.parameters())
+        model = TransformerHparams(hidden_dim, n_layers, 512, vocab_size, intermediate_size, attention_heads)
+        flops = model.get_infer_flops()
+        params = model.get_params()
+        
         size_diff = abs(self.args.target_size - params)*4/1e6
         logger.info(flops/1e9 - size_diff)
         logger.info("size %f", params*4.0/1e6)
@@ -157,12 +133,6 @@ class GA_search():
             genome_1.mutation(self.search_space)
             genome_2.mutation(self.search_space)
 
-        # while self.is_duplicate(genome_1):
-        #     genome_1.mutation(self.search_space)
-
-        # while self.is_duplicate(genome_2):
-        #     genome_2.mutation(self.search_space)
-
         children.append(genome_1)
         children.append(genome_2)
 
@@ -184,9 +154,6 @@ class GA_search():
             self.fitness(genome)
 
         graded_genome = [x for x in sorted(self.population, key=lambda x: x.fitness, reverse=True)]
-        # logger.info([g.gene_param for g in graded_genome])
-        # logger.info(graded_genome[0].gene_param)
-        # logger.info(graded_genome[0].fitness)
         self.best_gene.append((graded_genome[0].gene_param, graded_genome[0].fitness))
         self.population = graded_genome[:self.args.population_size]
 
@@ -196,14 +163,13 @@ def main():
     parser.add_argument("--population_size", default=20, type=int)
     parser.add_argument("--generation_size", default=20, type=int)
     parser.add_argument("--target_size", default=0.01, type=float)
-    parser.add_argument("--target_flops", default=67980805632.0, type=float)
 
     args = parser.parse_args()
     search_space = {
-        # "model_arch": ["biGRU", "biLSTM", "Transformer"],
         "vocab_size": [*range(1000, 26000, 1000)],
-        "input_dim": [*range(16, 512, 16)],
+        "attention_heads": [2, 4, 8, 16],
         "hidden_dim": [*range(16, 512, 16)],
+        "intermediate_size": [*range(64, 2048, 64)],
         "n_layers": [*range(1, 7)]
     }
     params = 125827586.0
@@ -212,21 +178,21 @@ def main():
           (args.generation_size, args.population_size, args.target_size*4/1e6))
 
     best_candidates = []
-    for i in tqdm(range(5)):
-        searcher = GA_search(args, search_space)
-        searcher.initialization()
-        for gen in tqdm(range(args.generation_size)):
-            logger.info("***Start generate %d***" %(gen))
-            searcher.generation()
-        
-        for genome in searcher.population:
-            searcher.fitness(genome)
-        graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
 
-        logger.info(graded_genome[0].gene_param)
-        logger.info(graded_genome[0].fitness)
-        logger.info(searcher.best_gene)
-        best_candidates.append(graded_genome[0])
+    searcher = GA_search(args, search_space)
+    searcher.initialization()
+    for gen in tqdm(range(args.generation_size)):
+        logger.info("***Start generate %d***" %(gen))
+        searcher.generation()
+    
+    for genome in searcher.population:
+        searcher.fitness(genome)
+    graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
+
+    logger.info(graded_genome[0].gene_param)
+    logger.info(graded_genome[0].fitness)
+    logger.info(searcher.best_gene)
+    best_candidates.append(graded_genome[0])
     
     best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
     for b in best_candidates:

@@ -180,12 +180,13 @@ def main():
                         help="Model size")                 
     parser.add_argument("--vocab_size", default=10000, type=int,
                         help="Vocabulary Size.")
-    parser.add_argument("--input_dim", default=512, type=int,
-                        help="Embedding Dim.")
+    parser.add_argument("--attention_heads", default=8, type=int,
+                        help="attention_heads")
     parser.add_argument("--hidden_dim", default=512, type=int,
                         help="Hidden dim of student model.")
     parser.add_argument("--n_layers", default=1, type=int,
                         help="Num of layers in student model.")
+    parser.add_argument("--intermediate_size", default=1, type=int)
     parser.add_argument("--model", default="biLSTM", type=str, required=True,
                         help="Student Model Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
@@ -232,11 +233,12 @@ def main():
     # n_layers = 2
 
     config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+
     config.num_labels = n_labels
+    config.num_attention_heads = args.attention_heads
     config.hidden_size = args.hidden_dim
-    config.max_position_embeddings = args.block_size + 2
+    config.intermediate_size = args.intermediate_size
     config.vocab_size = args.vocab_size
-    config.num_attention_heads = 8
     config.num_hidden_layers = args.n_layers
     model = Model(RobertaModel(config=config), config)
 
