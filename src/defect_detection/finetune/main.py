@@ -152,8 +152,11 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
+    np.save("../../../data/defect_detection/preds_unlabel_train", logits)
+    print(logits)
+
+    logits = torch.nn.functional.softmax(logits)
     preds = logits[:, 0] > 0.5
-    np.save("../../../data/defect_detection/preds_valid", preds)
     eval_acc = np.mean(labels==preds)
     recall = recall_score(labels, preds)
     precision = precision_score(labels, preds)
@@ -252,6 +255,9 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
+        params = sum(p.numel() for p in model.parameters())
+        logger.info("size %f", params)
+        exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))

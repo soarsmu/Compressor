@@ -247,6 +247,13 @@ def mix_loss_func(preds, labels, knowledge):
     return loss
 
 
+def distill_loss(logits, knowledge, temperature=1.0):
+
+    loss = F.kl_div(F.log_softmax(logits/temperature), F.softmax(knowledge/temperature), reduction="batchmean") * (temperature**2)
+    # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
+
+    return loss
+
 
 class RobertaClassificationHead(nn.Module):
 
@@ -287,4 +294,4 @@ class Model(nn.Module):
             loss = loss_fct(logits, labels)
             return loss, prob
         else:
-            return prob
+            return logits

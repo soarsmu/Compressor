@@ -80,16 +80,6 @@ class DistilledDataset(Dataset):
 
                 data.append((url1, url2, label, pred, args, url_to_code))
 
-        # data = data[: 4000]
-        # # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
-        # preds = np.zeros(len(data)).astype(int).tolist()
-        #             # print(len(preds))
-        # # print(len(data))
-        # assert len(data) == len(preds)
-        # mp_data = []
-        # for d in data:
-        #     mp_data.append((d, args, url_to_code, pred))
-
         # if "train" in postfix:
         #     data = random.sample(data, int(len(data)*0.1))
         # print(data)
@@ -104,11 +94,22 @@ class DistilledDataset(Dataset):
                 texts.append(" ".join(url_to_code[d[0]].split()))
                 texts.append(" ".join(url_to_code[d[1]].split()))
             tokenizer = BPE(args, texts, vocab_size, file_path, logger)
+        # data = data[:4000]
+        if "train" in postfix:
+            soft_labels = np.load(os.path.join(folder, "preds_unlabel.npy")).tolist()
 
+        # print(len(data))
+        # print(len(data))
+        # print(len(soft_labels))
+        # assert len(data) == len(soft_labels)
         _mp_data = []
-        for d in data:
+        for i, d in enumerate(data):
             lst = list(d)
             lst.append(tokenizer)
+            if "train" in postfix:
+                lst.append(soft_labels[i])
+            else:
+                lst.append([0.1, 0.1])
             _mp_data.append(tuple(lst))
 
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
@@ -119,11 +120,11 @@ class DistilledDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, i):
-        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label), torch.tensor(self.examples[i].pred)
+        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label), torch.tensor(self.examples[i].pred), torch.tensor(self.examples[i].soft_label)
 
 
 def preprocess(item):
-    url1, url2, label, pred, args, url_to_code, tokenizer = item
+    url1, url2, label, pred, args, url_to_code, tokenizer, s = item
     code1 = " ".join(url_to_code[url1].split())
     code2 = " ".join(url_to_code[url2].split())
     code1_ids = tokenizer.encode(code1).ids[:args.block_size-2]
@@ -138,7 +139,7 @@ def preprocess(item):
     source_tokens = code1 + code2
     source_ids = code1_ids + code2_ids
 
-    return InputFeatures(source_tokens, source_ids, label, pred)
+    return InputFeatures(source_tokens, source_ids, label, pred, s)
 
 
 def set_seed(seed=42):
@@ -155,9 +156,11 @@ class InputFeatures(object):
                  input_tokens,
                  input_ids,
                  label,
-                 pred
+                 pred,
+                 soft_label=[0.1, 0.1]
                  ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids
         self.label = label
         self.pred = pred
+        self.soft_label = soft_label

@@ -131,3 +131,5 @@ import numpy as np
 # with open("./unlabel_train.txt", "w") as wf:
 #     for d, p in zip(data, preds):
 #         wf.write(d[0]+"\t"+d[1]+"\t"+str(-1)+"\t"+str(p)+'\n')
+
+print(len(np.load("preds_unlabel.npy").tolist()))

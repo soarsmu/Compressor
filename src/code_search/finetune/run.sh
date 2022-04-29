@@ -15,8 +15,8 @@ CUDA_VISIBLE_DEVICES=2,4 python main.py \
 
 CUDA_VISIBLE_DEVICES=1 python main.py \
     --do_eval \
-    --train_data_file=../../../data/code_search/train_sampled.txt \
-    --eval_data_file=../../../data/code_search/test_sampled.txt \
+    --train_data_file=../../../data/code_search/label.pkl \
+    --eval_data_file=../../../data/code_search/test.pkl \
     --block_size 400 \
-    --eval_batch_size 64 \
+    --eval_batch_size 50 \
     --seed 123456 2>&1| tee ../logs/eval.log

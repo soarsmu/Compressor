@@ -7,6 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from model import Model
+import torch.nn.functional as F
 from utils import set_seed, load_and_cache_examples
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
@@ -143,12 +144,13 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         inputs = batch[0].to(args.device)
         label = batch[1].to(args.device)
         with torch.no_grad():
-            _, logit = model(inputs, label)
+            logit = model(inputs)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-    np.save("../../../data/clone_search/preds_unlabel", logits)
+    # np.save("../../../data/clone_search/preds_unlabel", logits)
+    # logits = F.softmax(logits)
     y_preds = logits[:, 1] > 0.5
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)
@@ -311,18 +313,18 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
-        # print(model)
-        from torchinfo import summary
-        # inputs = torch.randint(config.vocab_size, (1, 800))
-        # flops, _ = profile(model, (inputs, ), verbose=False)
+        # # print(model)
+        # from torchinfo import summary
+        # # inputs = torch.randint(config.vocab_size, (1, 800))
+        # # flops, _ = profile(model, (inputs, ), verbose=False)
 
-        summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'])
-        params = sum(p.numel() for p in model.parameters())
-        print(params)
-        exit()
-        # logger.info(flops)
+        # summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'])
+        # params = sum(p.numel() for p in model.parameters())
+        # print(params)
+        # exit()
+        # # logger.info(flops)
         
-        logger.info("size %f", params)
+        # logger.info("size %f", params)
         # exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(

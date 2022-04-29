@@ -22,23 +22,24 @@ class TextDataset(Dataset):
         folder = '/'.join(file_path.split('/')[:-1])
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
 
-        try:
-            self.examples = torch.load(cache_file_path)
-            # self.examples = self.examples[]
-            logger.info("Loading features from cached file %s", cache_file_path)
-        except:
-            with open(file_path, "rb") as fp:
-                data = pickle.load(fp)
+        # try:
+        #     self.examples = torch.load(cache_file_path)
+        #     # self.examples = self.examples[]
+        #     logger.info("Loading features from cached file %s", cache_file_path)
+        # except:
+        with open(file_path, "rb") as fp:
+            data = pickle.load(fp)
 
-            mp_data = []
-            for d in data:
-                mp_data.append((d, tokenizer, args))
-            # if "test" not in postfix:
-            # mp_data = random.sample(mp_data, int(len(mp_data)*0.01))
+        mp_data = []
+        for d in data:
+            mp_data.append((d, tokenizer, args))
+        # if "test" not in postfix:
+        mp_data = mp_data[:5500]
+        # mp_data = random.sample(mp_data, int(len(mp_data)*0.01))
 
-            pool = multiprocessing.Pool(multiprocessing.cpu_count())
-            self.examples = pool.map(get_example, tqdm(mp_data, total=len(mp_data)))
-            torch.save(self.examples, cache_file_path)
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        self.examples = pool.map(get_example, tqdm(mp_data, total=len(mp_data)))
+            # torch.save(self.examples, cache_file_path)
 
     def __len__(self):
         return len(self.examples)
@@ -67,7 +68,7 @@ class InputFeatures(object):
     def __init__(self,
                  input_tokens,
                  input_ids,
-                 label
+                 label = 1
                  ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids
@@ -95,8 +96,11 @@ def convert_examples_to_features(code1_tokens, code2_tokens, label, tokenizer, a
 
 
 def get_example(item):
-    (code_1, code_2, label), tokenizer, args = item
-
+    try:
+        (code_1, code_2, label), tokenizer, args = item
+    except:
+        (code_1, code_2), tokenizer, args = item
+        label = 1
     try:
         code = " ".join(code_1.split())
     except:

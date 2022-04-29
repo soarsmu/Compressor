@@ -4,10 +4,11 @@ import logging
 import argparse
 import warnings
 import numpy as np
-
+import time
 from tqdm import tqdm
+import torch.nn.functional as F
 from utils import set_seed, DistilledDataset
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model, distill_loss
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification
@@ -43,8 +44,10 @@ def train(args, model, train_dataloader, eval_dataloader):
             texts = batch[0].to("cuda")
             labels = batch[1].to("cuda")
             knowledge = batch[2].to("cuda")
-            loss, preds = model(texts, labels)
-            # preds = model(texts)
+            soft_knowledge = batch[3].to("cuda")
+            # loss, preds = model(texts, labels)
+            preds = model(texts)
+            loss = distill_loss(preds, soft_knowledge)
             # loss = loss_func(preds, labels, knowledge)
             # loss = mix_loss_func(preds, labels, knowledge)
             loss.backward()
@@ -76,18 +79,21 @@ def evaluate(model, eval_dataloader):
     model.eval()
     predict_all = []
     labels_all = []
-
+    time_count = []
     with torch.no_grad():
         bar = tqdm(eval_dataloader, total=len(eval_dataloader))
         bar.set_description("Evaluation")
         for batch in bar:
-            texts = batch[0].to("cuda")        
-            label = batch[1].to("cuda")
+            texts = batch[0]        
+            label = batch[1]
+            time_start = time.time()
             prob = model(texts)
-
+            time_end = time.time()
+            prob = F.softmax(prob)
+            time_count.append(time_end-time_start)
             predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
-
+    print(sum(time_count)/len(time_count))
     predict_all = np.concatenate(predict_all, 0)
     labels_all = np.concatenate(labels_all, 0)
 
@@ -129,14 +135,15 @@ def main():
                         help="Model size")                 
     parser.add_argument("--vocab_size", default=10000, type=int,
                         help="Vocabulary Size.")
-    parser.add_argument("--input_dim", default=512, type=int,
-                        help="Embedding Dim.")
+    parser.add_argument("--attention_heads", default=8, type=int,
+                        help="attention_heads")
     parser.add_argument("--hidden_dim", default=512, type=int,
                         help="Hidden dim of student model.")
     parser.add_argument("--n_layers", default=1, type=int,
                         help="Num of layers in student model.")
-    parser.add_argument("--model", default="biLSTM", type=str, required=True,
-                        help="Student Model Type.")
+    parser.add_argument("--intermediate_size", default=1, type=int)
+    # parser.add_argument("--model", default="biLSTM", type=str, required=True,
+    #                     help="Student Model Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
@@ -181,11 +188,12 @@ def main():
     # n_layers = 2
 
     config = RobertaConfig.from_pretrained("microsoft/codebert-base")
+
     config.num_labels = n_labels
+    config.num_attention_heads = args.attention_heads
     config.hidden_size = args.hidden_dim
-    config.max_position_embeddings = args.block_size + 2
+    config.intermediate_size = args.intermediate_size
     config.vocab_size = args.vocab_size
-    config.num_attention_heads = 8
     config.num_hidden_layers = args.n_layers
     config.hidden_dropout_prob = 0.5
     model = Model(RobertaForSequenceClassification(config=config))
@@ -210,7 +218,8 @@ def main():
     if args.do_eval:
         model_dir = os.path.join(args.model_dir, args.size, args.type, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
-        model.to(args.device)
+        # model.to(args.device)
+        model.to("cpu")
         eval_res = evaluate(model, eval_dataloader)
         logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 

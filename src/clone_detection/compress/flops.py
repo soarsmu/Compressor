@@ -98,8 +98,8 @@ class TransformerHparams(object):
         hidden=2 * self.h * self.h,
         hidden_bias=self.h,
         hidden_act=DROPOUT_FLOPS * self.h + ACTIVATION_FLOPS * self.h,
-        logits=2 * self.h,
-        soft_logits=2 * SOFTMAX_FLOPS
+        logits=2 * self.h
+        # soft_logits=2 * SOFTMAX_FLOPS
     )
     return sum(classification_flops.values()) * self.s
 

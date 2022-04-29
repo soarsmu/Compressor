@@ -4,10 +4,10 @@ import logging
 import argparse
 import warnings
 import numpy as np
-
+import torch.nn.functional as F
 from tqdm import tqdm
 from utils import set_seed, DistilledDataset
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model, distill_loss
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel
@@ -42,12 +42,12 @@ def train(args, model, train_dataloader, eval_dataloader):
             texts = batch[0].to("cuda")
             labels = batch[1].to("cuda")
             knowledge = batch[2].to("cuda")
-            # print(labels)
-            loss, preds = model(texts, labels)
-            # preds = model(texts)
-            # loss = loss_func(preds, labels, knowledge)
+            soft_knowledge = batch[3].to("cuda")
+            # loss, preds = model(texts, labels)
+            preds = model(texts)
+            loss = distill_loss(preds, soft_knowledge)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
             tr_num += 1
 
@@ -83,7 +83,7 @@ def evaluate(model, eval_dataloader):
             texts = batch[0].to("cuda")        
             label = batch[1].to("cuda")
             prob = model(texts)
-
+            prob = F.softmax(prob)
             predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
 
@@ -187,8 +187,6 @@ def main():
     parser.add_argument("--n_layers", default=1, type=int,
                         help="Num of layers in student model.")
     parser.add_argument("--intermediate_size", default=1, type=int)
-    parser.add_argument("--model", default="biLSTM", type=str, required=True,
-                        help="Student Model Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
@@ -240,6 +238,7 @@ def main():
     config.intermediate_size = args.intermediate_size
     config.vocab_size = args.vocab_size
     config.num_hidden_layers = args.n_layers
+    config.hidden_dropout_prob = 0.2
     model = Model(RobertaModel(config=config), config)
 
     if args.do_train:

@@ -61,7 +61,7 @@ class Model(nn.Module):
             loss = -loss.mean()
             return loss, prob
         else:
-            return prob
+            return logits
 
 class LSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
@@ -250,3 +250,11 @@ def mix_loss_func(preds, labels, knowledge):
 
     loss = loss/labels.size(0)
     return loss
+
+def distill_loss(logits, knowledge, temperature=10.0):
+
+    loss = F.kl_div(F.log_softmax(logits/temperature), F.softmax(knowledge/temperature), reduction="batchmean") * (temperature**2)
+    # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
+
+    return loss
+

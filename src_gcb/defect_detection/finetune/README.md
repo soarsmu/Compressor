@@ -1,0 +1,206 @@
+mkdir -p ../logs
+CUDA_VISIBLE_DEVICES=4,6 python main.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 10 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/train.log
+
+
+CUDA_VISIBLE_DEVICES=1 python main.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_test \
+    --train_data_file=../../../data/defect_detection/label_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --epoch 10 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 32 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456 2>&1 | tee ../logs/eval.log
+
+
+CUDA_VISIBLE_DEVICES=1 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.01 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 176 \
+    --intermediate_size 64 \
+    --n_layers 6 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/distill_0.01.log
+
+
+CUDA_VISIBLE_DEVICES=0 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_test \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.01 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 176 \
+    --intermediate_size 64 \
+    --n_layers 6 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/eval_distill_0.01.log
+
+CUDA_VISIBLE_DEVICES=0 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.05 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 432 \
+    --intermediate_size 128 \
+    --n_layers 6 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/distill_0.05.log
+
+CUDA_VISIBLE_DEVICES=0 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_test \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.05 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 432 \
+    --intermediate_size 128 \
+    --n_layers 6 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/eval_distill_0.05.log
+
+
+CUDA_VISIBLE_DEVICES=4 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.1 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 480 \
+    --intermediate_size 576 \
+    --n_layers 6 \
+    --vocab_size 6000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/distill_0.1.log
+
+CUDA_VISIBLE_DEVICES=4 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_test \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 0.1 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 480 \
+    --intermediate_size 576 \
+    --n_layers 6 \
+    --vocab_size 6000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/eval_distill_0.1.log

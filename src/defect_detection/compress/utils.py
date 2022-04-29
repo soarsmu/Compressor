@@ -72,7 +72,7 @@ class DistilledDataset(Dataset):
                 # if d["target"] == -1:
                 #     self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"])))
                 # else:
-                    self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"])))
+                    self.examples.append((InputFeatures(code, source_ids, d["pred"], d["pred"], d["soft_label"])))
             else:
                 self.examples.append((InputFeatures(code, source_ids, d["target"])))
 
@@ -82,7 +82,7 @@ class DistilledDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, i):
-        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label), torch.tensor(self.examples[i].pred)
+        return torch.tensor(self.examples[i].input_ids), torch.tensor(self.examples[i].label), torch.tensor(self.examples[i].pred), torch.tensor(self.examples[i].soft_label)
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -98,12 +98,14 @@ class InputFeatures(object):
                  input_tokens,
                  input_ids,
                  label,
-                 pred=0
+                 pred=0,
+                 soft_label=[0.1, 0.1]
                  ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids
         self.label = label
         self.pred = pred
+        self.soft_label = soft_label
 
 
 # deprecated this class

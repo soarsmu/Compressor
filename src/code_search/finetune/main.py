@@ -121,7 +121,6 @@ def train(args, model, tokenizer):
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
-
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
@@ -149,9 +148,9 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
             labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-
+    # np.save("../../../data/clone_search/preds_unlabel", logits)
+    # logits = torch.nn.functional.softmax(logits)
     y_preds = logits[:, 1] > 0.5
-    np.save("../../../data/clone_search/preds_train_sampled", y_preds)
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)
     f1 = f1_score(labels, y_preds)
@@ -168,6 +167,71 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     return result
 
+def evaluate_mrr(args, model, tokenizer, eval_when_training=False):
+    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
+    eval_sampler = SequentialSampler(eval_dataset)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
+                                 batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
+
+    if args.n_gpu > 1 and eval_when_training is False:
+        model = torch.nn.DataParallel(model)
+
+    logger.info("***** Running evaluation *****")
+    logger.info("  Num examples = %d", len(eval_dataset))
+    logger.info("  Batch size = %d", args.eval_batch_size)
+
+    model.eval()
+    predict_all = []
+    labels_all = []
+    ranks = []
+    top5 = 0
+    top10 = 0
+    top20 = 0
+    num_batch = 0
+    with torch.no_grad():
+        bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+        bar.set_description("Evaluation")
+        for batch in bar:
+            texts = batch[0].to("cuda")        
+            label = batch[1].to("cuda")
+            prob = model(texts)
+
+            predict_all.append(prob.cpu().numpy())
+            labels_all.append(label.cpu().numpy())
+            correct_score = predict_all[0][0][1]
+            print(predict_all, correct_score)
+            exit()
+            scores = np.array([pred[1] for pred in predict_all[0]])
+            rank = np.sum(scores >= correct_score)
+            if int(rank) <=20:
+                top20 += 1
+            if int(rank) <=10:
+                top10 += 1
+            if int(rank) <=3:
+                top5 += 1
+
+            ranks.append(rank)
+    mean_mrr = np.mean(1.0 / np.array(ranks))
+    print('num of all ranks:', len(ranks))
+    print("mrr: {}".format(mean_mrr))
+    print ('top5:', top5)
+    print ('top10:', top10)
+    print ('top20:', top20)
+    predict_all = np.concatenate(predict_all, 0)
+    labels_all = np.concatenate(labels_all, 0)
+
+    preds = predict_all[:, 1] > 0.5
+    recall = recall_score(labels_all, preds)
+    precision = precision_score(labels_all, preds)
+    f1 = f1_score(labels_all, preds)
+    results = {
+        "eval_acc": np.mean(labels_all==preds),
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1)
+    }
+    print(results)
+    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -248,14 +312,25 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
+        # # print(model)
+        # from torchinfo import summary
+        # # inputs = torch.randint(config.vocab_size, (1, 800))
+        # # flops, _ = profile(model, (inputs, ), verbose=False)
+
+        # summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'])
+        # params = sum(p.numel() for p in model.parameters())
+        # print(params)
+        # exit()
+        # # logger.info(flops)
+        
+        # logger.info("size %f", params)
+        # exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(
             args.output_dir, "{}".format(checkpoint_prefix))
-        model.load_state_dict(torch.load(output_dir))
+        model.load_state_dict({k.replace("module.", ""):v for k, v in torch.load(output_dir).items()}, strict=False)
         model.to(args.device)
-        print(model)
-        exit()
-        evaluate(args, model, tokenizer)
+        evaluate_mrr(args, model, tokenizer)
 
 
 if __name__ == "__main__":
