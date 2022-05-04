@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import logging
 import argparse
@@ -138,24 +139,27 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     model.eval()
     logits = []
     labels = []
-
+    time_count = []
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
         bar.set_description("evaluation")
         inputs = batch[0].to(args.device)        
         label = batch[1].to(args.device) 
         with torch.no_grad():
+            time_start = time.time()
             logit = model(inputs)
+            time_end = time.time()
+            time_count.append(time_end-time_start)
             logits.append(logit.cpu().numpy())
         labels.append(label.cpu().numpy())
-
+    print(sum(time_count)/len(time_count))
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
 
-    np.save("../../../data/defect_detection/preds_unlabel_train", logits)
-    print(logits)
+    # np.save("../../../data/defect_detection/preds_unlabel_train", logits)
+    # print(logits)
 
-    logits = torch.nn.functional.softmax(logits)
+    # logits = torch.nn.functional.softmax(logits)
     preds = logits[:, 0] > 0.5
     eval_acc = np.mean(labels==preds)
     recall = recall_score(labels, preds)
@@ -224,9 +228,9 @@ def main():
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = parser.parse_args()
     logger.info(args)
-
-    args.device = torch.device(
-        "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    args.device = "cpu"
+    # args.device = torch.device(
+    #     "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     args.n_gpu = torch.cuda.device_count()
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
@@ -257,7 +261,7 @@ def main():
     if args.do_eval:
         params = sum(p.numel() for p in model.parameters())
         logger.info("size %f", params)
-        exit()
+        # exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict(torch.load(output_dir))

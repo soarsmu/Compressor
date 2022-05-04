@@ -17,4 +17,4 @@ class Model(nn.Module):
             loss = -loss.mean()
             return loss, prob
         else:
-            return logits
+            return prob
