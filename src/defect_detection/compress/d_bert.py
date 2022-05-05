@@ -8,7 +8,7 @@ import time
 from tqdm import tqdm
 import torch.nn.functional as F
 from utils import set_seed, DistilledDataset
-from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model, distill_loss
+from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model, distill_loss, mse_loss
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification
@@ -47,7 +47,7 @@ def train(args, model, train_dataloader, eval_dataloader):
             soft_knowledge = batch[3].to("cuda")
             # loss, preds = model(texts, labels)
             preds = model(texts)
-            loss = distill_loss(preds, soft_knowledge)
+            loss = mse_loss(preds, soft_knowledge)
             # loss = loss_func(preds, labels, knowledge)
             # loss = mix_loss_func(preds, labels, knowledge)
             loss.backward()
@@ -121,7 +121,7 @@ def main():
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-    parser.add_argument("--model_dir", default="./", type=str,
+    parser.add_argument("--model_dir", default="./baseline", type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
@@ -172,31 +172,19 @@ def main():
 
     n_labels = 2
 
-    # if args.model == "LSTM":
-    #     model = LSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "biLSTM":
-    #     model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "GRU":
-    #     model = GRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "biGRU":
-    #     model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "Transformer":
-    #     model = Transformer(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
+    
+    model = biLSTM(args.vocab_size, 128, args.hidden_dim, n_labels, args.n_layers)
 
-    # hidden_dim = 768
-    n_labels = 2
-    # n_layers = 2
+    # config = RobertaConfig.from_pretrained("microsoft/codebert-base")
 
-    config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-
-    config.num_labels = n_labels
-    config.num_attention_heads = args.attention_heads
-    config.hidden_size = args.hidden_dim
-    config.intermediate_size = args.intermediate_size
-    config.vocab_size = args.vocab_size
-    config.num_hidden_layers = args.n_layers
-    config.hidden_dropout_prob = 0.5
-    model = Model(RobertaForSequenceClassification(config=config))
+    # config.num_labels = n_labels
+    # config.num_attention_heads = args.attention_heads
+    # config.hidden_size = args.hidden_dim
+    # config.intermediate_size = args.intermediate_size
+    # config.vocab_size = args.vocab_size
+    # config.num_hidden_layers = args.n_layers
+    # config.hidden_dropout_prob = 0.5
+    # model = Model(RobertaForSequenceClassification(config=config))
 
     if args.do_train:
         train_dataset = DistilledDataset(args, args.vocab_size, args.train_data_file, logger)

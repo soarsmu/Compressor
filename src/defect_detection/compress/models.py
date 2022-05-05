@@ -92,7 +92,6 @@ class LSTM(nn.Module):
         else:
             return prob
 
-
 class biLSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(biLSTM, self).__init__()
@@ -103,20 +102,24 @@ class biLSTM(nn.Module):
                             batch_first=True, 
                             bidirectional=True,
                             dropout=0.2)
-        self.fc = nn.Linear(hidden_dim * 2, n_labels)
+        self.dense = nn.Linear(hidden_dim * 2, 200)
+        self.fc = nn.Linear(200, n_labels)
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, input_ids, labels=None):
         embed = self.embedding(input_ids)
         outputs, (hidden, _) = self.lstm(embed)
         hidden = hidden.permute(1, 0, 2)
         hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
-        logits = self.fc(hidden)
+        x = F.relu(self.dense(hidden))
+        x = self.dropout(x)
+        logits = self.fc(x)
         prob = F.softmax(logits)
 
         if labels is not None:
             labels = labels.long()
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(logits, (1 - labels))
+            loss = loss_fct(logits, labels)
             return loss, prob
         else:
             return prob
@@ -258,3 +261,8 @@ def distill_loss(logits, knowledge, temperature=10.0):
 
     return loss
 
+def mse_loss(logits, knowledge):
+    kd_criterion = nn.MSELoss()
+    loss = kd_criterion(logits, knowledge)
+
+    return loss

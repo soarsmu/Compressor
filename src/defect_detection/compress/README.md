@@ -3,116 +3,327 @@ CUDA_VISIBLE_DEVICES=0 python distillation.py \
     --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
     --eval_data_file=../../../data/defect_detection/valid.jsonl \
     --model_dir ../checkpoint \
-    --size 0.01 \
+    --size 50 \
     --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 176 \
-    --intermediate_size 64 \
-    --n_layers 6 \
+    --attention_heads 8 \
+    --hidden_dim 448 \
+    --intermediate_size 256 \
+    --n_layers 11 \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
     --epochs 20 \
-    --seed 123456 2>&1| tee ../logs/unlabel_train_001.log
+    --seed 123456 2>&1| tee ../logs/unlabel_train_50.log
+
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 40 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 352 \
+    --intermediate_size 384 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_40.log
+
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
+    --intermediate_size 64 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/unlabel_train_3.log
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size rand_3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 16 \
+    --intermediate_size 2656 \
+    --n_layers 6 \
+    --vocab_size 13000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/unlabel_rand_train_3.log
 
 CUDA_VISIBLE_DEVICES=0 python distillation.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
     --eval_data_file=../../../data/defect_detection/test.jsonl \
     --model_dir ../checkpoint \
-    --size 0.01 \
+    --size rand_3 \
     --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 176 \
+    --attention_heads 8 \
+    --hidden_dim 16 \
+    --intermediate_size 2656 \
+    --n_layers 6 \
+    --vocab_size 13000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_rand_train_3.log
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size rand_3_2 \
+    --type unlabel_train \
+    --attention_heads 4 \
+    --hidden_dim 128 \
+    --intermediate_size 1728 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/unlabel_rand_2_train_3.log
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size rand_3_2 \
+    --type unlabel_train \
+    --attention_heads 4 \
+    --hidden_dim 128 \
+    --intermediate_size 1728 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_rand_2_train_3.log
+
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../checkpoint \
+    --size rand_3_3 \
+    --type unlabel_train \
+    --attention_heads 2 \
+    --hidden_dim 16 \
+    --intermediate_size 864 \
+    --n_layers 1 \
+    --vocab_size 44000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/unlabel_rand_3_train_3.log
+
+CUDA_VISIBLE_DEVICES=1 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size rand_3_3 \
+    --type unlabel_train \
+    --attention_heads 2 \
+    --hidden_dim 16 \
+    --intermediate_size 864 \
+    --n_layers 1 \
+    --vocab_size 44000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_rand_3_train_3.log
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
     --intermediate_size 64 \
-    --n_layers 6 \
+    --n_layers 12 \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
-    --eval_batch_size 1 \
+    --eval_batch_size 64 \
     --learning_rate 1e-4 \
-    --epochs 15 \
-    --choice recent \
-    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_001.log
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_3.log
 
 
-CUDA_VISIBLE_DEVICES=1 python distillation.py \
+CUDA_VISIBLE_DEVICES=1 python d_bert.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train_gcb.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../baseline \
+    --size o_gcb \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 300 \
+    --intermediate_size 64 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/baseline_gcb.log
+
+
+CUDA_VISIBLE_DEVICES=1 python d_bert.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train_gcb.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../baseline \
+    --size o_gcb \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 300 \
+    --intermediate_size 64 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_baseline_gcb.log
+
+
+CUDA_VISIBLE_DEVICES=0 python d_bert.py \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train_gcb.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --model_dir ../baseline \
+    --size n_gcb \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 200 \
+    --intermediate_size 64 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/n_baseline_gcb.log
+
+CUDA_VISIBLE_DEVICES=0 python d_bert.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train_gcb.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../baseline \
+    --size n_gcb \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 200 \
+    --intermediate_size 64 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_n_baseline_gcb.log
+
+
+CUDA_VISIBLE_DEVICES=1 python d_bert.py \
     --do_train \
     --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
     --eval_data_file=../../../data/defect_detection/valid.jsonl \
-    --model_dir ../checkpoint \
-    --size 0.05 \
+    --model_dir ../baseline \
+    --size n \
     --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 432 \
-    --intermediate_size 128 \
-    --n_layers 6 \
+    --attention_heads 8 \
+    --hidden_dim 200 \
+    --intermediate_size 64 \
+    --n_layers 1 \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
     --epochs 20 \
-    --seed 123456 2>&1| tee ../logs/unlabel_train_005.log
+    --seed 123456 2>&1| tee ../logs/n_baseline.log
 
-
-CUDA_VISIBLE_DEVICES=1 python distillation.py \
+CUDA_VISIBLE_DEVICES=1 python d_bert.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
     --eval_data_file=../../../data/defect_detection/test.jsonl \
-    --model_dir ../checkpoint \
-    --size 0.05 \
+    --model_dir ../baseline \
+    --size n \
     --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 432 \
-    --intermediate_size 128 \
-    --n_layers 6 \
+    --attention_heads 8 \
+    --hidden_dim 200 \
+    --intermediate_size 64 \
+    --n_layers 1 \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
-    --eval_batch_size 1 \
-    --learning_rate 1e-4 \
-    --epochs 20 \
-    --choice recent \
-    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_005.log
-
-CUDA_VISIBLE_DEVICES=6 python distillation.py \
-    --do_train \
-    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
-    --eval_data_file=../../../data/defect_detection/valid.jsonl \
-    --model_dir ../checkpoint \
-    --size 0.1 \
-    --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 480 \
-    --intermediate_size 576 \
-    --n_layers 6 \
-    --vocab_size 6000 \
-    --block_size 400 \
-    --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
     --epochs 20 \
-    --seed 123456 2>&1| tee ../logs/unlabel_train_01.log
+    --seed 123456 2>&1| tee ../logs/eval_n_baseline.log
 
 
-CUDA_VISIBLE_DEVICES=6 python distillation.py \
+CUDA_VISIBLE_DEVICES=1 python d_bert.py \
     --do_eval \
     --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
     --eval_data_file=../../../data/defect_detection/test.jsonl \
-    --model_dir ../checkpoint \
-    --size 0.1 \
+    --model_dir ../baseline \
+    --size o \
     --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 480 \
-    --intermediate_size 576 \
-    --n_layers 6 \
-    --vocab_size 6000 \
+    --attention_heads 8 \
+    --hidden_dim 300 \
+    --intermediate_size 64 \
+    --n_layers 1 \
+    --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
     --epochs 20 \
-    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_01.log
+    --seed 123456 2>&1| tee ../logs/eval_baseline.log

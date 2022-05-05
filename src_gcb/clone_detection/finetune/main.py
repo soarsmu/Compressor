@@ -249,15 +249,17 @@ class TextDataset(Dataset):
         #only use 10% valid data to keep best model        
         # if 'valid' in file_path:
         # data=random.sample(data,int(len(data)*0.1))
-        for sing_example in data:
-            code_pairs.append([sing_example[0], 
-                                sing_example[1], 
-                                url_to_code[sing_example[0]], 
-                                url_to_code[sing_example[1]]])
-        with open(code_pairs_file_path, 'wb') as f:
-            pickle.dump(code_pairs, f)
-        #convert example to input features    
-        self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
+        # for sing_example in data:
+        #     code_pairs.append([sing_example[0], 
+        #                         sing_example[1], 
+        #                         url_to_code[sing_example[0]], 
+        #                         url_to_code[sing_example[1]]])
+        # with open(code_pairs_file_path, 'wb') as f:
+        #     pickle.dump(code_pairs, f)
+        #convert example to input features
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
+        self.examples = pool.map(convert_examples_to_features, tqdm(data, total=len(data)))    
+        # self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
             # torch.save(self.examples, cache_file_path)
         
         if 'train' in file_path:
@@ -533,8 +535,8 @@ def test(args, model, tokenizer, best_threshold=0):
 
     #output result
     logits=np.concatenate(logits,0)
-    # np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
-    # print(logits)
+    np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
+    print(logits)
     y_preds=logits[:,1]>best_threshold
     y_trues=np.concatenate(y_trues,0)
     from sklearn.metrics import recall_score

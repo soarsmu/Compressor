@@ -43,4 +43,4 @@ class Model(nn.Module):
             loss = loss_fct(logits, labels)
             return loss, prob
         else:
-            return prob
+            return logits

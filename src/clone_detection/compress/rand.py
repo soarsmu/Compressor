@@ -94,7 +94,7 @@ class GA_search():
         intermediate_size = genome.gene_param["intermediate_size"]
         n_layers = genome.gene_param["n_layers"]
         model = TransformerHparams(hidden_dim, n_layers, 514, vocab_size, intermediate_size, attention_heads)
-        flops = model.get_infer_flops()
+        # flops = model.get_infer_flops()
         params = model.get_params()
         
         size_diff = abs(self.args.target_size - params)*4/1e6
@@ -102,7 +102,7 @@ class GA_search():
         # logger.info("size %f", params*4.0/1e6)
         # logger.info("flops %f", flops/1e9)
 
-        genome.fitness = flops/1e9 - size_diff
+        genome.fitness = size_diff
 
     def crossover_and_mutation(self, parents):
         children = []
@@ -178,28 +178,34 @@ def main():
           (args.generation_size, args.population_size, args.target_size*4/1e6))
 
     best_candidates = []
-    for i in tqdm(range(10)):
-        searcher = GA_search(args, search_space)
+    searcher = GA_search(args, search_space)
+    for i in range(100):
         searcher.initialization()
-        for gen in tqdm(range(args.generation_size)):
-            logger.info("***Start generate %d***" %(gen))
-            searcher.generation()
-        
+        # print(random.randint(0, 10))
         for genome in searcher.population:
             searcher.fitness(genome)
-        graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
+            if genome.fitness < 0.05:
+                logger.info(genome.gene_param)
+                exit()
+        # for gen in tqdm(range(args.generation_size)):
+        #     logger.info("***Start generate %d***" %(gen))
+        #     searcher.generation()
+        
+        # for genome in searcher.population:
+        #     searcher.fitness(genome)
+        # graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
 
-        logger.info(graded_genome[0].gene_param)
-        logger.info(graded_genome[0].fitness)
-        logger.info(searcher.best_gene)
-        best_candidates.append(graded_genome[0])
+        # logger.info(graded_genome[0].gene_param)
+        # logger.info(graded_genome[0].fitness)
+        # logger.info(searcher.best_gene)
+        # best_candidates.append(graded_genome[0])
     
-    best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
-    for b in best_candidates:
-        logger.info(b.gene_param)
-        logger.info(b.fitness)
-    logger.info("the best one:")
-    logger.info(best_candidates[0].gene_param)
+    # best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
+    # for b in best_candidates:
+    #     logger.info(b.gene_param)
+    #     logger.info(b.fitness)
+    # logger.info("the best one:")
+    # logger.info(best_candidates[0].gene_param)
 
 
 

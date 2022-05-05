@@ -38,7 +38,6 @@ class LSTM(nn.Module):
         else:
             return prob
 
-
 class biLSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(biLSTM, self).__init__()
@@ -49,51 +48,18 @@ class biLSTM(nn.Module):
                             batch_first=True, 
                             bidirectional=True,
                             dropout=0.2)
-        # self.dense = nn.Linear(hidden_dim * 4, hidden_dim * 2)
-        self.fc = nn.Linear(hidden_dim*2, n_labels)
-        # 初始时间步和最终时间步的隐藏状态作为全连接层输入
-        self.w_omega = nn.Parameter(torch.Tensor(hidden_dim * 2, hidden_dim * 2))
-        self.u_omega = nn.Parameter(torch.Tensor(hidden_dim * 2, 1))
-
-        nn.init.uniform_(self.w_omega, -0.1, 0.1)
-        nn.init.uniform_(self.u_omega, -0.1, 0.1)
-
-    def attention_net(self, x):       #x:[batch, seq_len, hidden_dim*2]
-
-        u = torch.tanh(torch.matmul(x, self.w_omega))         #[batch, seq_len, hidden_dim*2]
-        att = torch.matmul(u, self.u_omega)                   #[batch, seq_len, 1]
-        att_score = F.softmax(att, dim=1)
-
-        scored_x = x * att_score                              #[batch, seq_len, hidden_dim*2]
-
-        context = torch.sum(scored_x, dim=1)                  #[batch, hidden_dim*2]
-        return context
-
-
-    def attention(self, lstm_output, final_state):
-        # lstm_output = lstm_output.permute(1, 0, 2)
-        final_state = final_state.permute(1, 0, 2)
-        merged_state = torch.cat((final_state[:, -2, :], final_state[:, -1, :]), dim=1)
-        merged_state = merged_state.squeeze(0).unsqueeze(2)
-        # print(lstm_output.shape)
-        # print(merged_state.shape)
-        weights = torch.bmm(lstm_output, merged_state)
-        weights = F.softmax(weights.squeeze(2), dim=1).unsqueeze(2)
-        return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
+        self.dense = nn.Linear(hidden_dim * 2, 200)
+        self.fc = nn.Linear(200, n_labels)
+        self.dropout = nn.Dropout(0.1)
 
     def forward(self, input_ids, labels=None):
-        # input_ids = input_ids.view(-1, 400)
         embed = self.embedding(input_ids)
         outputs, (hidden, _) = self.lstm(embed)
-        attn_output = self.attention_net(outputs)
-        # hidden = hidden.permute(1, 0, 2)
-        # # hidden = hidden.reshape(-1, hidden.size(-2), hidden.size(-1)*2)
-        # hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
-        # # hidden = self.dense(hidden)
-        # logits = self.fc(hidden)
-        # print(attn_output.shape)
-        # print(attn_output.squeeze(0).shape)
-        logits = self.fc(attn_output)
+        hidden = hidden.permute(1, 0, 2)
+        hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+        x = F.relu(self.dense(hidden))
+        x = self.dropout(x)
+        logits = self.fc(x)
         prob = F.softmax(logits)
 
         if labels is not None:
@@ -103,7 +69,6 @@ class biLSTM(nn.Module):
             return loss, prob
         else:
             return prob
-
 
 class GRU(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
@@ -295,3 +260,10 @@ class Model(nn.Module):
             return loss, prob
         else:
             return logits
+
+
+def mse_loss(logits, knowledge):
+    kd_criterion = nn.MSELoss()
+    loss = kd_criterion(logits, knowledge)
+
+    return loss

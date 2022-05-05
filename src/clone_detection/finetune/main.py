@@ -149,8 +149,8 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
             labels.append(label.cpu().numpy())
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-    # np.save("../../../data/clone_search/preds_unlabel", logits)
-    # logits = F.softmax(logits)
+    np.save("../../../data/clone_search/preds_unlabel", logits)
+    logits = F.softmax(logits)
     y_preds = logits[:, 1] > 0.5
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)

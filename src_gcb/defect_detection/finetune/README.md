@@ -69,6 +69,61 @@ CUDA_VISIBLE_DEVICES=1 python distill.py \
     --seed 123456  2>&1 | tee ../logs/distill_0.01.log
 
 
+CUDA_VISIBLE_DEVICES=1 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
+    --intermediate_size 64 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/distill_3.log
+
+CUDA_VISIBLE_DEVICES=1 python distill.py \
+    --output_dir=../checkpoint \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_test \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/valid.jsonl \
+    --test_data_file=../../../data/defect_detection/test.jsonl \
+    --epoch 20 \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
+    --intermediate_size 64 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/eval_distill_3.log
+
+
 CUDA_VISIBLE_DEVICES=0 python distill.py \
     --output_dir=../checkpoint \
     --model_type=roberta \

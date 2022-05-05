@@ -96,7 +96,7 @@ class DistilledDataset(Dataset):
             tokenizer = BPE(args, texts, vocab_size, file_path, logger)
         # data = data[:4000]
         if "train" in postfix:
-            soft_labels = np.load(os.path.join(folder, "preds_unlabel.npy")).tolist()
+            soft_labels = np.load(os.path.join(folder, "preds_unlabel_train_gcb.npy")).tolist()
 
         # print(len(data))
         # print(len(data))

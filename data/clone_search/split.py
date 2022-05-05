@@ -132,4 +132,6 @@ import numpy as np
 #     for d, p in zip(data, preds):
 #         wf.write(d[0]+"\t"+d[1]+"\t"+str(-1)+"\t"+str(p)+'\n')
 
+print(len(np.load("preds_unlabel_train_gcb.npy").tolist()))
+
 print(len(np.load("preds_unlabel.npy").tolist()))

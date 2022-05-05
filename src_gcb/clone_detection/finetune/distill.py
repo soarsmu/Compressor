@@ -559,8 +559,8 @@ def test(args, model, tokenizer, best_threshold=0):
 
     #output result
     logits=np.concatenate(logits,0)
-    np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
-    print(logits)
+    # np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
+    # print(logits)
     y_preds=logits[:,1]>best_threshold
     y_trues=np.concatenate(y_trues,0)
     from sklearn.metrics import recall_score

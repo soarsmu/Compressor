@@ -4,15 +4,13 @@ import logging
 import argparse
 import warnings
 import numpy as np
-import time
-from tqdm import tqdm
 import torch.nn.functional as F
+from tqdm import tqdm
 from utils import set_seed, DistilledDataset
 from models import LSTM, biLSTM, GRU, biGRU, Transformer, loss_func, mix_loss_func, Model, distill_loss
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
-from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaForSequenceClassification
-
+from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -48,8 +46,6 @@ def train(args, model, train_dataloader, eval_dataloader):
             # loss, preds = model(texts, labels)
             preds = model(texts)
             loss = distill_loss(preds, soft_knowledge)
-            # loss = loss_func(preds, labels, knowledge)
-            # loss = mix_loss_func(preds, labels, knowledge)
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             train_loss += loss.item()
@@ -79,25 +75,22 @@ def evaluate(model, eval_dataloader):
     model.eval()
     predict_all = []
     labels_all = []
-    # time_count = []
+
     with torch.no_grad():
         bar = tqdm(eval_dataloader, total=len(eval_dataloader))
         bar.set_description("Evaluation")
         for batch in bar:
-            texts = batch[0].to("cuda")
+            texts = batch[0].to("cuda")        
             label = batch[1].to("cuda")
-            # time_start = time.time()
             prob = model(texts)
-            # time_end = time.time()
             prob = F.softmax(prob)
-            # time_count.append(time_end-time_start)
             predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
-    # print(sum(time_count)/len(time_count))
+
     predict_all = np.concatenate(predict_all, 0)
     labels_all = np.concatenate(labels_all, 0)
 
-    preds = predict_all[:, 0] > 0.5
+    preds = predict_all[:, 1] > 0.5
     recall = recall_score(labels_all, preds)
     precision = precision_score(labels_all, preds)
     f1 = f1_score(labels_all, preds)
@@ -109,6 +102,58 @@ def evaluate(model, eval_dataloader):
     }
     return results
 
+def evaluate_mrr(model, eval_dataloader):
+    model.eval()
+    predict_all = []
+    labels_all = []
+    ranks = []
+    top5 = 0
+    top10 = 0
+    top20 = 0
+    num_batch = 0
+    with torch.no_grad():
+        bar = tqdm(eval_dataloader, total=len(eval_dataloader))
+        bar.set_description("Evaluation")
+        for batch in bar:
+            texts = batch[0].to("cuda")        
+            label = batch[1].to("cuda")
+            prob = model(texts)
+
+            predict_all.append(prob.cpu().numpy())
+            labels_all.append(label.cpu().numpy())
+            correct_score = predict_all[0][0][1]
+            # print(predict_all, correct_score)
+            # exit()
+            scores = np.array([pred[1] for pred in predict_all[0]])
+            rank = np.sum(scores >= correct_score)
+            if int(rank) <=20:
+                top20 += 1
+            if int(rank) <=10:
+                top10 += 1
+            if int(rank) <=5:
+                top5 += 1
+
+            ranks.append(rank)
+    mean_mrr = np.mean(1.0 / np.array(ranks))
+    print('num of all ranks:', len(ranks))
+    print("mrr: {}".format(mean_mrr))
+    print ('top5:', top5)
+    print ('top10:', top10)
+    print ('top20:', top20)
+    predict_all = np.concatenate(predict_all, 0)
+    labels_all = np.concatenate(labels_all, 0)
+
+    preds = predict_all[:, 1] > 0.5
+    recall = recall_score(labels_all, preds)
+    precision = precision_score(labels_all, preds)
+    f1 = f1_score(labels_all, preds)
+    results = {
+        "eval_acc": np.mean(labels_all==preds),
+        "eval_precision": float(precision),
+        "eval_recall": float(recall),
+        "eval_f1": float(f1)
+    }
+    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -142,13 +187,11 @@ def main():
     parser.add_argument("--n_layers", default=1, type=int,
                         help="Num of layers in student model.")
     parser.add_argument("--intermediate_size", default=1, type=int)
-    # parser.add_argument("--model", default="biLSTM", type=str, required=True,
-    #                     help="Student Model Type.")
     parser.add_argument("--train_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=16, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--learning_rate", default=5e-4, type=float,
+    parser.add_argument("--learning_rate", default=1e-3, type=float,
                         help="The initial learning rate for Adam.")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
@@ -172,32 +215,8 @@ def main():
 
     n_labels = 2
 
-    # if args.model == "LSTM":
-    #     model = LSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "biLSTM":
-    #     model = biLSTM(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "GRU":
-    #     model = GRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "biGRU":
-    #     model = biGRU(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-    # elif args.model == "Transformer":
-    #     model = Transformer(args.vocab_size, args.input_dim, args.hidden_dim, n_labels, args.n_layers)
-
-    # hidden_dim = 768
-    n_labels = 2
-    # n_layers = 2
-
-    config = RobertaConfig.from_pretrained("microsoft/codebert-base")
-
-    config.num_labels = n_labels
-    config.num_attention_heads = args.attention_heads
-    config.hidden_size = args.hidden_dim
-    config.intermediate_size = args.intermediate_size
-    config.vocab_size = args.vocab_size
-    config.num_hidden_layers = args.n_layers
-    config.hidden_dropout_prob = 0.5
-    model = Model(RobertaForSequenceClassification(config=config))
-
+    model = biLSTM(args.vocab_size, 300, args.hidden_dim, n_labels, args.n_layers)
+    
     if args.do_train:
         train_dataset = DistilledDataset(args, args.vocab_size, args.train_data_file, logger)
         train_sampler = RandomSampler(train_dataset)
@@ -207,20 +226,19 @@ def main():
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
     
+    # for i in eval_dataloader:
+    #     print(i)
+    # exit()
     model.to(args.device)
 
     if args.do_train:
-        # model_dir = os.path.join(args.model_dir, args.size, args.choice, "model.bin")
-        # model.load_state_dict(torch.load(model_dir))
-        # model.to(args.device)
         train(args, model, train_dataloader, eval_dataloader)
 
     if args.do_eval:
         model_dir = os.path.join(args.model_dir, args.size, args.type, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
-        # model.to("cpu")
-        eval_res = evaluate(model, eval_dataloader)
+        eval_res = evaluate_mrr(model, eval_dataloader)
         logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 
 
