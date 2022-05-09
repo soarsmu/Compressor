@@ -245,7 +245,7 @@ class TextDataset(Dataset):
                 else:
                     label=1
                 data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-        data = data[:100]
+        # data = data[:100]
         #only use 10% valid data to keep best model        
         # if 'valid' in file_path:
         # data=random.sample(data,int(len(data)*0.1))

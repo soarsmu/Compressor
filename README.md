@@ -8,7 +8,7 @@ Please use a docker container with `PyTorch version >= 1.6`. For example,
 docker run -it --gpus all -v <your repo path>:/workspace/Compressor --name <your container name> pytorch/pytorch:1.6.0-cuda10.1-cudnn7-devel
 ```
 
-Which version of PyTorch should be used may be related to the version of cuda on your machine, please check carefully.
+Which version of PyTorch should be used may be related to the version of cuda on your machine, please check carefully. Note that you can set `--cpus=<num>` to limit the used cpus in testing inference latency.
 
 Then, please install some necessary libraries:
 
@@ -53,5 +53,4 @@ pip install -r requirements.txt
 
 ## How to run
 
-The scripts for each experiments are in the `README.md` under `src` and `src_gcb`.
-
+The scripts for each experiments are in the `<src or src_gcb>/<task>/README.md`.

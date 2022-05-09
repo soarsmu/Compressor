@@ -1,3 +1,4 @@
+```
 mkdir -p ../logs
 CUDA_VISIBLE_DEVICES=5,0 python main.py \
     --output_dir=../checkpoint \
@@ -225,3 +226,4 @@ CUDA_VISIBLE_DEVICES=5 python distill.py \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
     --seed 123456  2>&1 | tee ../logs/eval_distill_0.1.log
+```

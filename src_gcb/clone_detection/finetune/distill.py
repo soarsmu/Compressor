@@ -264,7 +264,7 @@ class TextDataset(Dataset):
             else:
                 lst.append([0.1, 0.1])
             _mp_data.append(tuple(lst))
-        _mp_data = _mp_data[:100]
+        # _mp_data = _mp_data[:100]
         #only use 10% valid data to keep best model        
         # if 'valid' in file_path:
         # data=random.sample(data,int(len(data)*0.1))

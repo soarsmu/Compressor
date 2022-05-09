@@ -1,4 +1,7 @@
 
+```
+python searcher.py --size 3
+
 CUDA_VISIBLE_DEVICES=6 python distillation.py \
     --do_train \
     --train_data_file=../../../data/clone_search/unlabel_train.txt \
@@ -171,3 +174,4 @@ CUDA_VISIBLE_DEVICES=0 python d_bert.py \
     --learning_rate 1e-4 \
     --epochs 10 \
     --seed 123456 2>&1| tee ../logs/eval_n_baseline.log
+```

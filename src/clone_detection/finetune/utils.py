@@ -48,7 +48,7 @@ class TextDataset(Dataset):
                     label = 1
                 data.append((url1, url2, label, tokenizer,
                         args, url_to_code))
-        data = data[: 1]
+        # data = data[: 1]
         # if "test" not in postfix:
         # data = random.sample(data, int(len(data)*0.01))
 
