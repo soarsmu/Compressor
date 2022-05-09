@@ -1,7 +1,11 @@
 
 ```
 python searcher.py --size 3
+```
+Then you got the architecture for small models.
 
+Try to train them.
+```
 CUDA_VISIBLE_DEVICES=6 python distillation.py \
     --do_train \
     --train_data_file=../../../data/clone_search/unlabel_train.txt \
