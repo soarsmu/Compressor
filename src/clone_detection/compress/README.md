@@ -33,7 +33,7 @@ CUDA_VISIBLE_DEVICES=6 python distillation.py \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
-    --eval_batch_size 64 \
+    --eval_batch_size 1 \
     --learning_rate 1e-4 \
     --epochs 10 \
     --seed 123456 2>&1| tee ../logs/eval_unlabel_train_3.log

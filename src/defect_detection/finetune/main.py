@@ -228,7 +228,7 @@ def main():
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -  %(message)s", datefmt="%m/%d/%Y %H:%M:%S", level=logging.INFO)
     args = parser.parse_args()
     logger.info(args)
-    args.device = "cpu"
+    args.device = torch.device("cpu")
     # args.device = torch.device(
     #     "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     args.n_gpu = torch.cuda.device_count()

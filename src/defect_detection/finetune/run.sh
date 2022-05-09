@@ -20,3 +20,11 @@ CUDA_VISIBLE_DEVICES=0 python main.py \
     --block_size 400 \
     --eval_batch_size 1 \
     --seed 123456 2>&1| tee ../logs/eval.log
+
+CUDA_VISIBLE_DEVICES=6 python main.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --block_size 400 \
+    --eval_batch_size 200 \
+    --seed 123456 2>&1| tee ../logs/eval.log

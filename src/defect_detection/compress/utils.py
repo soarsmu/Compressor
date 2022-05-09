@@ -61,7 +61,7 @@ class DistilledDataset(Dataset):
             tokenizer = BPE(args, texts, vocab_size, file_path, logger)
 
         # preds = np.load(os.path.join(folder, "preds_"+postfix+".npy")).astype(int).tolist()
-
+        data = data[:100]
         for d in tqdm(data):
             code = " ".join(d["func"].split())
             source_ids = tokenizer.encode(code).ids[:args.block_size-2]

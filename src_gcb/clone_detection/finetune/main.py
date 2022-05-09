@@ -245,7 +245,7 @@ class TextDataset(Dataset):
                 else:
                     label=1
                 data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-            
+        data = data[:100]
         #only use 10% valid data to keep best model        
         # if 'valid' in file_path:
         # data=random.sample(data,int(len(data)*0.1))
@@ -502,6 +502,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     return result
 
+import time
 def test(args, model, tokenizer, best_threshold=0):
     #build dataloader
     eval_dataset = TextDataset(tokenizer, args, file_path=args.test_data_file)
@@ -521,12 +522,16 @@ def test(args, model, tokenizer, best_threshold=0):
     model.eval()
     logits=[]  
     y_trues=[]
+    time_count = []
     for batch in tqdm(eval_dataloader):
         (inputs_ids_1,position_idx_1,attn_mask_1,
         inputs_ids_2,position_idx_2,attn_mask_2,
         labels)=[x.to(args.device)  for x in batch]
         with torch.no_grad():
+            time_start = time.time()
             lm_loss,logit = model(inputs_ids_1,position_idx_1,attn_mask_1,inputs_ids_2,position_idx_2,attn_mask_2,labels)
+            time_end = time.time()
+            time_count.append(time_end-time_start)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
@@ -535,8 +540,9 @@ def test(args, model, tokenizer, best_threshold=0):
 
     #output result
     logits=np.concatenate(logits,0)
-    np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
-    print(logits)
+    # np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
+    # print(logits)
+    print(sum(time_count)/len(time_count))
     y_preds=logits[:,1]>best_threshold
     y_trues=np.concatenate(y_trues,0)
     from sklearn.metrics import recall_score
@@ -622,7 +628,7 @@ def main():
     args = parser.parse_args()
 
     # Setup CUDA, GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device( "cpu")
     args.n_gpu = torch.cuda.device_count()
 
     args.device = device

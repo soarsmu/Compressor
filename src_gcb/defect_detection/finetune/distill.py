@@ -143,10 +143,13 @@ class TextDataset(Dataset):
         preds = np.load(os.path.join(folder, "preds_unlabel_train_gcb.npy")).tolist()
         tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(args.vocab_size) + ".json")
         tokenizer = Tokenizer.from_file(tokenizer_path)
+        # cout = 0
         with open(file_path) as f:
             for i, line in tqdm(enumerate(f)):
                 js=json.loads(line.strip())
                 self.examples.append(convert_examples_to_features(js,tokenizer,args, preds[i]))
+                if i == 100:
+                    break
                 # 这里每次都是重新读取并处理数据集，能否cache然后load
         logger.info("Saving features into cached file %s", cache_file_path)
             # torch.save(self.examples, cache_file_path)
@@ -339,7 +342,7 @@ def train(args, train_dataset, model, tokenizer):
                         logger.info("Saving model checkpoint to %s", output_dir)
                         
 
-
+import time
 
 def evaluate(args, model, tokenizer,eval_when_training=False):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
@@ -427,13 +430,17 @@ def test(args, model, tokenizer):
     model.eval()
     logits=[]   
     labels=[]
+    time_count = []
     for batch in tqdm(eval_dataloader,total=len(eval_dataloader)):
         inputs_ids = batch[0].to(args.device)
         attn_mask = batch[1].to(args.device) 
         position_idx = batch[2].to(args.device) 
         label=batch[3].to(args.device) 
         with torch.no_grad():
+            time_start = time.time()
             lm_loss, logit = model(inputs_ids, attn_mask, position_idx, label)
+            time_end = time.time()
+            time_count.append(time_end-time_start)
             logit = F.softmax(logit)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
@@ -441,6 +448,7 @@ def test(args, model, tokenizer):
     logits=np.concatenate(logits,0)
     # np.save("../../../data/defect_detection/preds_unlabel_train_gcb", logits)
     # print(logits)
+    print(sum(time_count)/len(time_count))
     labels=np.concatenate(labels,0)
     preds=logits[:,0]>0.5
     eval_acc=np.mean(labels==preds)
@@ -586,6 +594,7 @@ def main():
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend='nccl')
         args.n_gpu = 1
+    device = torch.device("cpu")
     args.device = device
     args.per_gpu_train_batch_size=args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size=args.eval_batch_size//args.n_gpu

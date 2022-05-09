@@ -185,11 +185,30 @@ CUDA_VISIBLE_DEVICES=0 python distillation.py \
     --vocab_size 1000 \
     --block_size 400 \
     --train_batch_size 16 \
-    --eval_batch_size 64 \
+    --eval_batch_size 1 \
     --learning_rate 1e-4 \
     --epochs 20 \
     --seed 123456 2>&1| tee ../logs/eval_unlabel_train_3.log
 
+
+CUDA_VISIBLE_DEVICES=0 python distillation.py \
+    --do_eval \
+    --train_data_file=../../../data/defect_detection/soft_unlabel_train.jsonl \
+    --eval_data_file=../../../data/defect_detection/test.jsonl \
+    --model_dir ../checkpoint \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
+    --intermediate_size 64 \
+    --n_layers 12 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --epochs 20 \
+    --seed 123456 2>&1| tee ../logs/eval_unlabel_train_3.log
 
 CUDA_VISIBLE_DEVICES=1 python d_bert.py \
     --do_train \

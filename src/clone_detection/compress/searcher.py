@@ -1,4 +1,5 @@
 import copy
+import time
 import random
 import logging
 import hashlib
@@ -176,9 +177,11 @@ def main():
     args.target_size = args.target_size * 1e6/4
     logger.info("***Start GA search for %d generations, %d population, target model size %d MB***" %
           (args.generation_size, args.population_size, args.target_size*4/1e6))
-
+    
     best_candidates = []
+    time_count = []
     for i in tqdm(range(10)):
+        time_start = time.time()
         searcher = GA_search(args, search_space)
         searcher.initialization()
         for gen in tqdm(range(args.generation_size)):
@@ -193,6 +196,8 @@ def main():
         logger.info(graded_genome[0].fitness)
         logger.info(searcher.best_gene)
         best_candidates.append(graded_genome[0])
+        time_end = time.time()
+        time_count.append(time_end-time_start)
     
     best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
     for b in best_candidates:
@@ -200,6 +205,7 @@ def main():
         logger.info(b.fitness)
     logger.info("the best one:")
     logger.info(best_candidates[0].gene_param)
+    print(sum(time_count)/len(time_count))
 
 
 

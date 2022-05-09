@@ -19,17 +19,17 @@ class TextDataset(Dataset):
         folder = '/'.join(file_path.split('/')[:-1])
         cache_file_path = os.path.join(folder, 'cached_{}.bin'.format(postfix))
 
-        try:
-            self.examples = torch.load(cache_file_path)
-            logger.info("Loading features from cached file %s", cache_file_path)
-        except:
-            data = []
-            with open(file_path) as f:
-                for line in f:
-                    data.append(json.loads(line.strip()))
-
-            for d in tqdm(data):
-                self.examples.append(convert_examples_to_features(d, tokenizer, args))
+        # try:
+        #     self.examples = torch.load(cache_file_path)
+        #     logger.info("Loading features from cached file %s", cache_file_path)
+        # except:
+        data = []
+        with open(file_path) as f:
+            for line in f:
+                data.append(json.loads(line.strip()))
+        data = data[:200]
+        for d in tqdm(data):
+            self.examples.append(convert_examples_to_features(d, tokenizer, args))
         torch.save(self.examples, cache_file_path)
         
     def __len__(self):

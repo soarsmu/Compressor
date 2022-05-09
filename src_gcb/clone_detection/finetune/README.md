@@ -32,7 +32,7 @@ CUDA_VISIBLE_DEVICES=5 python main.py \
     --code_length 384 \
     --data_flow_length 128 \
     --train_batch_size 12 \
-    --eval_batch_size 64 \
+    --eval_batch_size 1 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
@@ -85,7 +85,7 @@ CUDA_VISIBLE_DEVICES=0 python distill.py \
     --code_length 384 \
     --data_flow_length 128 \
     --train_batch_size 12 \
-    --eval_batch_size 64 \
+    --eval_batch_size 1 \
     --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \

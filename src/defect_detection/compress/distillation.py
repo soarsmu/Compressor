@@ -79,21 +79,21 @@ def evaluate(model, eval_dataloader):
     model.eval()
     predict_all = []
     labels_all = []
-    # time_count = []
+    time_count = []
     with torch.no_grad():
         bar = tqdm(eval_dataloader, total=len(eval_dataloader))
         bar.set_description("Evaluation")
         for batch in bar:
-            texts = batch[0].to("cuda")
-            label = batch[1].to("cuda")
-            # time_start = time.time()
+            texts = batch[0]
+            label = batch[1]
+            time_start = time.time()
             prob = model(texts)
-            # time_end = time.time()
+            time_end = time.time()
             prob = F.softmax(prob)
-            # time_count.append(time_end-time_start)
+            time_count.append(time_end-time_start)
             predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
-    # print(sum(time_count)/len(time_count))
+    print(sum(time_count)/len(time_count))
     predict_all = np.concatenate(predict_all, 0)
     labels_all = np.concatenate(labels_all, 0)
 
@@ -156,8 +156,8 @@ def main():
                         help="random seed for initialization")
 
     args = parser.parse_args()
-
-    args.device = torch.device("cuda")
+    args.device = torch.device("cpu")
+    # args.device = torch.device("cuda")
     args.n_gpu = torch.cuda.device_count()
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu

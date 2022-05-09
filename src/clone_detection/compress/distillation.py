@@ -70,23 +70,26 @@ def train(args, model, train_dataloader, eval_dataloader):
         
         logger.info("Train Loss: {0}, Val Acc: {1}, Val Precision: {2}, Val Recall: {3}, Val F1: {4}".format(train_loss/tr_num, dev_results["eval_acc"], dev_results["eval_precision"], dev_results["eval_recall"], dev_results["eval_f1"]))
 
-
+import time
 def evaluate(model, eval_dataloader):
     model.eval()
     predict_all = []
     labels_all = []
-
+    time_count = []
     with torch.no_grad():
         bar = tqdm(eval_dataloader, total=len(eval_dataloader))
         bar.set_description("Evaluation")
         for batch in bar:
-            texts = batch[0].to("cuda")        
-            label = batch[1].to("cuda")
+            texts = batch[0]       
+            label = batch[1]
+            time_start = time.time()
             prob = model(texts)
+            time_end = time.time()
             prob = F.softmax(prob)
+            time_count.append(time_end-time_start)
             predict_all.append(prob.cpu().numpy())
             labels_all.append(label.cpu().numpy())
-
+    print(sum(time_count)/len(time_count))
     predict_all = np.concatenate(predict_all, 0)
     labels_all = np.concatenate(labels_all, 0)
 
@@ -201,6 +204,7 @@ def main():
     args = parser.parse_args()
 
     args.device = torch.device("cuda")
+    args.device = torch.device("cpu")
     args.n_gpu = torch.cuda.device_count()
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
@@ -262,7 +266,7 @@ def main():
         model_dir = os.path.join(args.model_dir, args.size, args.type, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
-        eval_res = evaluate_mrr(model, eval_dataloader)
+        eval_res = evaluate(model, eval_dataloader)
         logger.info("Acc: {0}, Precision: {1}, Recall: {2}, F1: {3}".format(eval_res["eval_acc"], eval_res["eval_precision"], eval_res["eval_recall"], eval_res["eval_f1"]))
 
 

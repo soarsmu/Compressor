@@ -20,6 +20,7 @@ using a masked language modeling (MLM) loss.
 """
 
 from __future__ import absolute_import, division, print_function
+from asyncio import base_tasks
 import sys
 import argparse
 import glob
@@ -136,11 +137,16 @@ class TextDataset(Dataset):
         
         # except:
         # logger.info("Creating features from dataset file at %s", file_path)
+        cout = 0
         with open(file_path) as f:
             for line in tqdm(f):
                 js=json.loads(line.strip())
+                
+                if cout > 100:
+                    break
                 self.examples.append(convert_examples_to_features(js,tokenizer,args))
                 # break
+                cout += 1
 
         logger.info("Saving features into cached file %s", cache_file_path)
             # torch.save(self.examples, cache_file_path)
@@ -383,7 +389,7 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
         "eval_acc":round(eval_acc,4),
     }
     return result
-
+import time
 def test(args, model, tokenizer):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_dataset = TextDataset(tokenizer, args,args.test_data_file)
@@ -407,18 +413,23 @@ def test(args, model, tokenizer):
     model.eval()
     logits=[]   
     labels=[]
+    time_count = []
     for batch in tqdm(eval_dataloader,total=len(eval_dataloader)):
         inputs_ids = batch[0].to(args.device)
         attn_mask = batch[1].to(args.device) 
         position_idx = batch[2].to(args.device) 
         label=batch[3].to(args.device) 
         with torch.no_grad():
+            time_start = time.time()
             lm_loss, logit = model(inputs_ids, attn_mask, position_idx, label)
+            time_end = time.time()
+            time_count.append(time_end-time_start)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
 
     logits=np.concatenate(logits, 0)
-    np.save("../../../data/defect_detection/preds_unlabel_train_gcb", logits)
+    print(sum(time_count)/len(time_count))
+    # np.save("../../../data/defect_detection/preds_unlabel_train_gcb", logits)
     print(logits)
     labels=np.concatenate(labels,0)
     preds=logits[:,0]>0.5
@@ -550,6 +561,8 @@ def main():
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend='nccl')
         args.n_gpu = 1
+
+    device = torch.device("cpu")
     args.device = device
     args.per_gpu_train_batch_size=args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size=args.eval_batch_size//args.n_gpu

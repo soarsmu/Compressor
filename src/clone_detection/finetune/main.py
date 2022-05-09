@@ -12,6 +12,7 @@ from utils import set_seed, load_and_cache_examples
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
+# from memory_profiler import profile 
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -120,6 +121,8 @@ def train(args, model, tokenizer):
                     else:
                         logger.info("Model checkpoint are not saved")
 
+import time
+
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
@@ -137,6 +140,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     model.eval()
     logits = []
     labels = []
+    time_count = []
 
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
@@ -144,12 +148,16 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         inputs = batch[0].to(args.device)
         label = batch[1].to(args.device)
         with torch.no_grad():
+            time_start = time.time()
             logit = model(inputs)
+            time_end = time.time()
+            time_count.append(time_end-time_start)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
+    print(sum(time_count)/len(time_count))
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-    np.save("../../../data/clone_search/preds_unlabel", logits)
+    # np.save("../../../data/clone_search/preds_unlabel", logits)
     logits = F.softmax(logits)
     y_preds = logits[:, 1] > 0.5
     recall = recall_score(labels, y_preds)
@@ -280,9 +288,9 @@ def main():
                         help="random seed for initialization")
 
     args = parser.parse_args()
-
-    args.device = torch.device(
-        "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    args.device = torch.device("cpu")
+    # args.device = torch.device(
+    #     "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
     args.n_gpu = torch.cuda.device_count()
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
@@ -330,7 +338,8 @@ def main():
         output_dir = os.path.join(
             args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict({k.replace("module.", ""):v for k, v in torch.load(output_dir).items()}, strict=False)
-        model.to(args.device)
+        # model.to(args.device)
+        model.to("cpu")
         evaluate(args, model, tokenizer)
 
 
