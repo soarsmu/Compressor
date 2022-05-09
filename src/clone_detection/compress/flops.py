@@ -2,30 +2,6 @@
 
 import collections
 
-# We checked this code with TensorFlow"s FLOPs counting, although we had to
-# correct for this issue: https://github.com/tensorflow/tensorflow/issues/22071
-# Assumptions going into the FLOPs counting
-#   - An "operation" is a mathematical operation, not a machine instruction. So
-#     an "exp" takes one opp like and add, even though in practice an exp
-#     might be slower. This is not too bad an assumption because
-#     matrix-multiplies dominate the compute for most models, so minor details
-#     about activation functions don"t matter too much. Similarly, we count
-#     matrix-multiplies as 2*m*n flops instead of m*n, as one might if
-#     if considering fused multiply-add ops.
-#   - Backward pass takes the same number of FLOPs as forward pass. No exactly
-#     right (e.g., for softmax cross entropy loss the backward pass is faster).
-#     Importantly, it really is the same for matrix-multiplies, which is most of
-#     the compute anyway.
-#   - We assume "dense" embedding lookups (i.e., multiplication by a one-hot
-#     vector). On some hardware accelerators, these dense operations are
-#     actually faster than sparse lookups.
-# Please open a github issue if you spot a problem with this code!
-
-# I am not sure if the below constants are 100% right, but they are only applied
-# to O(hidden_size) activations, which is generally a lot less compute than the
-# matrix-multiplies, which are O(hidden_size^2), so they don't affect the total
-# number of FLOPs much.
-
 # random number, >=, multiply activations by dropout mask, multiply activations
 # by correction (1 / (1 - dropout_rate))
 DROPOUT_FLOPS = 4
