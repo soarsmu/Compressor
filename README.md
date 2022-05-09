@@ -1,5 +1,7 @@
 # Compressor
 
+This replication package contains the source code for fine-tuning pre-trained models, model simplification and training, as well as all trained compressed models.
+
 ## Environment configuration
 
 Please use a docker container with `PyTorch version >= 1.6`. For example,
