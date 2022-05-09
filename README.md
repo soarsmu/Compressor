@@ -2,7 +2,7 @@
 
 ## Environment configuration
 
-Please use a docker container with `Pytorch version >= 1.6`. For example,
+Please use a docker container with `PyTorch version >= 1.6`. For example,
 
 ```
 docker run -it --gpus all -v <your repo path>:/workspace/Compressor --name <your container name> pytorch/pytorch:1.6.0-cuda10.1-cudnn7-devel
@@ -28,27 +28,25 @@ pip install -r requirements.txt
 │   ├── clond_detection
 │   │   ├── baseline (trained models of the baseline)
 │   │   ├── checkpoint (trained models of compressed models)
-│   │   ├── compress (code for compress models, including searching architecture and knowledge distillation)
+│   │   ├── compress (code for compressing models, including searching architecture and knowledge distillation)
 │   │   └── finetune (code for finetuning CodeBERT on clone detection)
 │   │
 │   └── vulnerability_prediction
 │       ├── baseline (trained models of the baseline)
 │       ├── checkpoint (trained models of compressed models)
-│       ├── compress (code for compress models, including searching architecture and knowledge distillation)
+│       ├── compress (code for compressing models, including searching architecture and knowledge distillation)
 │       └── finetune (code for finetuning CodeBERT on vulnerability prediction)
 │ 
 ├── src_gcb
 │   ├── clond_detection
 │   │   ├── baseline (trained models of the baseline)
 │   │   ├── checkpoint (trained models of compressed models)
-│   │   ├── compress (code for compress models, including searching architecture and knowledge distillation)
-│   │   └── finetune (code for finetuning GraphCodeBERT on clone detection)
+│   │   └── finetune (code for compressing and finetuning GraphCodeBERT on clone detection)
 │   │
 │   └── vulnerability_prediction
 │       ├── baseline (trained models of the baseline)
 │       ├── checkpoint (trained models of compressed models)
-│       ├── compress (code for compress models, including searching architecture and knowledge distillation)
-│       └── finetune (code for finetuning GraphCodeBERT on vulnerability prediction)
+│       └── finetune (code for compressing and finetuning GraphCodeBERT on clone detection)
 │ 
 └──python_parser (a parser to turn code into data flow graph, specifically designed for GraphCodeBERT, from its offical repository)
 ```
