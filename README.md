@@ -55,4 +55,4 @@ pip install -r requirements.txt
 
 ## How to run
 
-The scripts for each experiments are in the `<src or src_gcb>/<task>/README.md`.
+The scripts for each experiment are in the `<src or src_gcb>/<task>/<finetune or compress>/README.md`.
