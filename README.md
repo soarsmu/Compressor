@@ -48,7 +48,7 @@ pip install -r requirements.txt
 │   └── vulnerability_prediction
 │       ├── baseline (trained models of the baseline)
 │       ├── checkpoint (trained models of compressed models)
-│       └── finetune (code for compressing and finetuning GraphCodeBERT on clone detection)
+│       └── finetune (code for compressing and finetuning GraphCodeBERT on vulnerability prediction)
 │ 
 └──python_parser (a parser to turn code into data flow graph, specifically designed for GraphCodeBERT, from its offical repository)
 ```
