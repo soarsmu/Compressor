@@ -1,5 +1,3 @@
-# Copyright (c) Microsoft Corporation. 
-# Licensed under the MIT license.
 
 from tree_sitter import Language, Parser
 
