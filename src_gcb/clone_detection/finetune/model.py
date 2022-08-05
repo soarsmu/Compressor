@@ -17,8 +17,8 @@ class RobertaClassificationHead(nn.Module):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.out_proj = nn.Linear(config.hidden_size, 2)
 
-    def forward(self, features, **kwargs):
-        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+    def forward(self, features):
+        x = features[:, 0, :]
         x = x.reshape(-1,x.size(-1)*2)
         x = self.dropout(x)
         x = self.dense(x)
