@@ -1,48 +1,43 @@
 from __future__ import absolute_import, division, print_function
 
-import argparse
-import glob
-import logging
 import os
-import pickle
-import random
-import re
-import shutil
 import json
-import numpy as np
 import torch
-import torch.nn.functional as F
-from tokenizers import Tokenizer
-from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
-from torch.utils.data.distributed import DistributedSampler
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
-from tqdm import tqdm, trange
+import random
+import logging
+import argparse
+import numpy as np
 import multiprocessing
+import torch.nn.functional as F
+
+from tqdm import tqdm
+from tokenizers import Tokenizer
 from model import Model, distill_loss
+from tree_sitter import Language, Parser
+from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler
+
+from parser import DFG_python,DFG_java,DFG_ruby,DFG_go,DFG_php,DFG_javascript
+from parser import (remove_comments_and_docstrings,
+                    tree_to_token_index, index_to_code_token)
+from transformers import (AdamW, get_linear_schedule_with_warmup,
+                          RobertaConfig, RobertaForSequenceClassification)
 
 cpu_cont = 16
 logger = logging.getLogger(__name__)
 
-from parser import DFG_python,DFG_java,DFG_ruby,DFG_go,DFG_php,DFG_javascript
-from parser import (remove_comments_and_docstrings,
-                   tree_to_token_index,
-                   index_to_code_token,
-                   tree_to_variable_index)
-from tree_sitter import Language, Parser
 dfg_function={
-    'python':DFG_python,
-    'java':DFG_java,
-    'ruby':DFG_ruby,
-    'go':DFG_go,
-    'php':DFG_php,
-    'javascript':DFG_javascript
+    "python":DFG_python,
+    "java":DFG_java,
+    "ruby":DFG_ruby,
+    "go":DFG_go,
+    "php":DFG_php,
+    "javascript":DFG_javascript
 }
 
 #load parsers
 parsers={}        
 for lang in dfg_function:
-    LANGUAGE = Language('parser/my-languages.so', lang)
+    LANGUAGE = Language("parser/my-languages.so", lang)
     parser = Parser()
     parser.set_language(LANGUAGE) 
     parser = [parser,dfg_function[lang]]    
@@ -60,10 +55,10 @@ def extract_dataflow(code, parser,lang):
     if lang=="php":
         code="<?php"+code+"?>"    
     try:
-        tree = parser[0].parse(bytes(code,'utf8'))    
+        tree = parser[0].parse(bytes(code,"utf8"))    
         root_node = tree.root_node  
         tokens_index=tree_to_token_index(root_node)     
-        code=code.split('\n')
+        code=code.split("\n")
         code_tokens=[index_to_code_token(x,code) for x in tokens_index]  
         index_to_code={}
         for idx,(index,code) in enumerate(zip(tokens_index,code_tokens)):
@@ -87,6 +82,7 @@ def extract_dataflow(code, parser,lang):
     except:
         dfg=[]
     return code_tokens,dfg
+
 
 class InputFeatures(object):
     """A single training/test features for a example."""
@@ -131,14 +127,14 @@ class InputFeatures(object):
 def convert_examples_to_features(item):
     #source
     url1,url2,label,tokenizer, args,cache,url_to_code, s=item
-    parser=parsers['java']
+    parser=parsers["java"]
     
     for url in [url1,url2]:
         if url not in cache:
             func=url_to_code[url]
             
             #extract data flow
-            code_tokens,dfg=extract_dataflow(func,parser,'java')
+            code_tokens,dfg=extract_dataflow(func,parser,"java")
             code_tokens=[tokenizer.encode(x).tokens for idx,x in enumerate(code_tokens)]
             ori2cur_pos={}
             ori2cur_pos[-1]=(0,0)
@@ -178,39 +174,28 @@ def convert_examples_to_features(item):
                    source_tokens_2,source_ids_2,position_idx_2,dfg_to_code_2,dfg_to_dfg_2,
                      label,url1,url2, s)
 
+
 class TextDataset(Dataset):
-    def __init__(self, tokenizer, args, file_path='train'):
-        postfix=file_path.split('/')[-1].split('.txt')[0]
+    def __init__(self, tokenizer, args, file_path="train"):
+        postfix=file_path.split("/")[-1].split(".txt")[0]
 
         self.examples = []
         self.args=args
         index_filename=file_path
         
-        #load index
         logger.info("Creating features from index file at %s ", index_filename)
         url_to_code={}
 
-        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
-        cache_file_path = os.path.join(folder, 'cached_{}'.format(postfix))
-        # 保存下对应的code1和code2
-        code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(postfix))
-        code_pairs = []
-        # try:
-        #     self.examples = torch.load(cache_file_path)
-        #     with open(code_pairs_file_path, 'rb') as f:
-        #         code_pairs = pickle.load(f)
-        #     logger.info("Loading features from cached file %s", cache_file_path)
-
-        # except:
-        # preds = np.load(os.path.join(folder, "preds_unlabel_train_gcb.npy")).tolist()
+        folder = "/".join(file_path.split("/")[:-1])
+        
         tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(args.vocab_size) + ".json")
         tokenizer = Tokenizer.from_file(tokenizer_path)
         logger.info("Creating features from dataset file at %s", file_path)
-        with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+        with open("/".join(index_filename.split("/")[:-1])+"/data.jsonl") as f:
             for line in f:
                 line=line.strip()
                 js=json.loads(line)
-                url_to_code[js['idx']]=js['func']
+                url_to_code[js["idx"]]=js["func"]
                 
         #load code function according to index
         data=[]
@@ -223,10 +208,10 @@ class TextDataset(Dataset):
                     url1, url2, label, pred = line.split("\t")
                 else:
                     url1, url2, label = line.split("\t")
-                # url1,url2,label,p=line.split('\t')
+
                 if url1 not in url_to_code or url2 not in url_to_code:
                     continue
-                if label=='0':
+                if label=="0":
                     label=0
                 else:
                     label=1
@@ -243,40 +228,27 @@ class TextDataset(Dataset):
             else:
                 lst.append([0.1, 0.1])
             _mp_data.append(tuple(lst))
-        # _mp_data = _mp_data[:100]
-        #only use 10% valid data to keep best model        
-        # if 'valid' in file_path:
-        # data=random.sample(data,int(len(data)*0.1))
-        # for sing_example in data:
-        #     code_pairs.append([sing_example[0], 
-        #                         sing_example[1], 
-        #                         url_to_code[sing_example[0]], 
-        #                         url_to_code[sing_example[1]]])
-        # with open(code_pairs_file_path, 'wb') as f:
-        #     pickle.dump(code_pairs, f)
-        #convert example to input features
+
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         self.examples = pool.map(convert_examples_to_features, tqdm(_mp_data, total=len(_mp_data)))    
-        # self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
-            # torch.save(self.examples, cache_file_path)
-        
-        if 'train' in file_path:
+
+        if "train" in file_path:
             for idx, example in enumerate(self.examples[:3]):
                 logger.info("*** Example ***")
                 logger.info("idx: {}".format(idx))
                 logger.info("label: {}".format(example.label))
                 logger.info("soft label: {}".format(example.soft_label))
-                logger.info("input_tokens_1: {}".format([x.replace('\u0120','_') for x in example.input_tokens_1]))
-                logger.info("input_ids_1: {}".format(' '.join(map(str, example.input_ids_1))))       
+                logger.info("input_tokens_1: {}".format([x.replace("\u0120","_") for x in example.input_tokens_1]))
+                logger.info("input_ids_1: {}".format(" ".join(map(str, example.input_ids_1))))       
                 logger.info("position_idx_1: {}".format(example.position_idx_1))
-                logger.info("dfg_to_code_1: {}".format(' '.join(map(str, example.dfg_to_code_1))))
-                logger.info("dfg_to_dfg_1: {}".format(' '.join(map(str, example.dfg_to_dfg_1))))
+                logger.info("dfg_to_code_1: {}".format(" ".join(map(str, example.dfg_to_code_1))))
+                logger.info("dfg_to_dfg_1: {}".format(" ".join(map(str, example.dfg_to_dfg_1))))
                 
-                logger.info("input_tokens_2: {}".format([x.replace('\u0120','_') for x in example.input_tokens_2]))
-                logger.info("input_ids_2: {}".format(' '.join(map(str, example.input_ids_2))))       
+                logger.info("input_tokens_2: {}".format([x.replace("\u0120","_") for x in example.input_tokens_2]))
+                logger.info("input_ids_2: {}".format(" ".join(map(str, example.input_ids_2))))       
                 logger.info("position_idx_2: {}".format(example.position_idx_2))
-                logger.info("dfg_to_code_2: {}".format(' '.join(map(str, example.dfg_to_code_2))))
-                logger.info("dfg_to_dfg_2: {}".format(' '.join(map(str, example.dfg_to_dfg_2))))
+                logger.info("dfg_to_code_2: {}".format(" ".join(map(str, example.dfg_to_code_2))))
+                logger.info("dfg_to_dfg_2: {}".format(" ".join(map(str, example.dfg_to_dfg_2))))
 
 
     def __len__(self):
@@ -360,11 +332,11 @@ def train(args, train_dataset, model, tokenizer):
     model.to(args.device)
     
     # Prepare optimizer and schedule (linear warmup and decay)
-    no_decay = ['bias', 'LayerNorm.weight']
+    no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-         'weight_decay': args.weight_decay},
-        {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        {"params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+         "weight_decay": args.weight_decay},
+        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0}
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
@@ -407,7 +379,6 @@ def train(args, train_dataset, model, tokenizer):
                 loss = loss / args.gradient_accumulation_steps
 
             loss.backward()
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
             tr_loss += loss.item()
             tr_num+=1
@@ -430,18 +401,18 @@ def train(args, train_dataset, model, tokenizer):
                     results = evaluate(args, model, tokenizer, eval_when_training=True)    
                     
                     # Save model checkpoint
-                    if results['eval_acc']>best_f1:
-                        best_f1=results['eval_acc']
+                    if results["eval_acc"]>best_f1:
+                        best_f1=results["eval_acc"]
                         logger.info("  "+"*"*20)  
                         logger.info("  Best acc:%s",round(best_f1,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = 'checkpoint-best-f1'
-                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix), args.size, args.type)                        
+                        checkpoint_prefix = "checkpoint-best-f1"
+                        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, args.type)                        
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
-                        model_to_save = model.module if hasattr(model,'module') else model
-                        output_dir = os.path.join(output_dir, '{}'.format('model.bin')) 
+                        model_to_save = model.module if hasattr(model,"module") else model
+                        output_dir = os.path.join(output_dir, "{}".format("model.bin")) 
                         torch.save(model_to_save.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                         
@@ -484,11 +455,11 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     y_preds=logits[:,1]>best_threshold
     from sklearn.metrics import recall_score
-    recall=recall_score(y_trues, y_preds, average='macro')
+    recall=recall_score(y_trues, y_preds, average="macro")
     from sklearn.metrics import precision_score
-    precision=precision_score(y_trues, y_preds, average='macro')   
+    precision=precision_score(y_trues, y_preds, average="macro")   
     from sklearn.metrics import f1_score
-    f1=f1_score(y_trues, y_preds, average='macro')             
+    f1=f1_score(y_trues, y_preds, average="macro")             
     result = {
         "eval_acc": np.mean(y_trues==y_preds),
         "eval_recall": float(recall),
@@ -503,7 +474,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         logger.info("  %s = %s", key, str(round(result[key],4)))
 
     return result
-import time
+
 def test(args, model, tokenizer, best_threshold=0):
     #build dataloader
     eval_dataset = TextDataset(tokenizer, args, file_path=args.test_data_file)
@@ -523,16 +494,12 @@ def test(args, model, tokenizer, best_threshold=0):
     model.eval()
     logits=[]  
     y_trues=[]
-    time_count = []
     for batch in tqdm(eval_dataloader):
         (inputs_ids_1,position_idx_1,attn_mask_1,
         inputs_ids_2,position_idx_2,attn_mask_2,
         labels, soft_label)=[x.to(args.device)  for x in batch]
         with torch.no_grad():
-            time_start = time.time()
             lm_loss,logit = model(inputs_ids_1,position_idx_1,attn_mask_1,inputs_ids_2,position_idx_2,attn_mask_2,labels)
-            time_end = time.time()
-            time_count.append(time_end-time_start)
             logit = F.softmax(logit)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
@@ -542,17 +509,15 @@ def test(args, model, tokenizer, best_threshold=0):
 
     #output result
     logits=np.concatenate(logits,0)
-    print(sum(time_count)/len(time_count))
-    # np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
-    # print(logits)
+
     y_preds=logits[:,1]>best_threshold
     y_trues=np.concatenate(y_trues,0)
     from sklearn.metrics import recall_score
-    recall=recall_score(y_trues, y_preds, average='macro')
+    recall=recall_score(y_trues, y_preds, average="macro")
     from sklearn.metrics import precision_score
-    precision=precision_score(y_trues, y_preds, average='macro')   
+    precision=precision_score(y_trues, y_preds, average="macro")   
     from sklearn.metrics import f1_score
-    f1=f1_score(y_trues, y_preds, average='macro')             
+    f1=f1_score(y_trues, y_preds, average="macro")             
     result = {
         "test_acc": np.mean(y_trues==y_preds),
         "test_recall": float(recall),
@@ -594,13 +559,13 @@ def main():
                         help="Optional Code input sequence length after tokenization.") 
     parser.add_argument("--data_flow_length", default=64, type=int,
                         help="Optional Data Flow input sequence length after tokenization.") 
-    parser.add_argument("--do_train", action='store_true',
+    parser.add_argument("--do_train", action="store_true",
                         help="Whether to run training.")
-    parser.add_argument("--do_eval", action='store_true',
+    parser.add_argument("--do_eval", action="store_true",
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='store_true',
+    parser.add_argument("--do_test", action="store_true",
                         help="Whether to run eval on the dev set.")    
-    parser.add_argument("--evaluate_during_training", action='store_true',
+    parser.add_argument("--evaluate_during_training", action="store_true",
                         help="Run evaluation during training at each logging step.")
 
     parser.add_argument("--train_batch_size", default=4, type=int,
@@ -622,7 +587,7 @@ def main():
     parser.add_argument("--n_layers", default=1, type=int,
                         help="Num of layers in student model.")
     parser.add_argument("--intermediate_size", default=1, type=int)
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
@@ -637,9 +602,9 @@ def main():
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
 
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument("--seed", type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--epochs', type=int, default=1,
+    parser.add_argument("--epochs", type=int, default=1,
                         help="training epochs")
 
     args = parser.parse_args()
@@ -651,10 +616,10 @@ def main():
     args.device = device
 
     # Setup logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',datefmt='%m/%d/%Y %H:%M:%S',level=logging.INFO)
+    logging.basicConfig(format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",datefmt="%m/%d/%Y %H:%M:%S",level=logging.INFO)
     logger.warning("device: %s, n_gpu: %s",device, args.n_gpu)
 
-    folder = '/'.join(args.train_data_file.split('/')[:-1])
+    folder = "/".join(args.train_data_file.split("/")[:-1])
     tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(args.vocab_size) + ".json")
     tokenizer = Tokenizer.from_file(tokenizer_path)
     # Set seed
@@ -676,7 +641,6 @@ def main():
     # config.hidden_dropout_prob = 0.3
     model = Model(RobertaForSequenceClassification(config=config),config,tokenizer,args)   
 
-    # model=Model(model,config,tokenizer,args)
     logger.info("Training/evaluation parameters %s", args)
     # Training
     if args.do_train:
@@ -686,15 +650,15 @@ def main():
     # Evaluation
     results = {}
     if args.do_eval:
-        checkpoint_prefix = 'checkpoint-best-f1/model.bin'
-        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+        checkpoint_prefix = "checkpoint-best-f1/model.bin"
+        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         results = evaluate(args, model, tokenizer)
         
     if args.do_test:
-        checkpoint_prefix = 'checkpoint-best-f1'
-        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix), args.size, args.type, "model.bin")  
+        checkpoint_prefix = "checkpoint-best-f1"
+        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, args.type, "model.bin")  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         results = test(args, model, tokenizer,best_threshold=0.5)

@@ -1,12 +1,8 @@
 import torch
 import torch.nn as nn
-import torch
-from torch.autograd import Variable
-import copy
 import torch.nn.functional as F
-from torch.nn import CrossEntropyLoss, MSELoss
-from torch.utils.data import SequentialSampler, DataLoader
-import numpy as np
+
+from torch.nn import CrossEntropyLoss
 
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""

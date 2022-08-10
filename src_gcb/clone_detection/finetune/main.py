@@ -202,12 +202,8 @@ def convert_examples_to_features(item):
                 dfg_to_dfg,
             )
 
-    source_tokens_1, source_ids_1, position_idx_1, dfg_to_code_1, dfg_to_dfg_1 = cache[
-        url1
-    ]
-    source_tokens_2, source_ids_2, position_idx_2, dfg_to_code_2, dfg_to_dfg_2 = cache[
-        url2
-    ]
+    source_tokens_1, source_ids_1, position_idx_1, dfg_to_code_1, dfg_to_dfg_1 = cache[url1]
+    source_tokens_2, source_ids_2, position_idx_2, dfg_to_code_2, dfg_to_dfg_2 = cache[url2]
     return InputFeatures(
         source_tokens_1,
         source_ids_1,
@@ -236,19 +232,7 @@ class TextDataset(Dataset):
         # load index
         logger.info("Creating features from index file at %s ", index_filename)
         url_to_code = {}
-
-        folder = "/".join(file_path.split("/")[:-1])  # 得到文件目录
-        cache_file_path = os.path.join(folder, "cached_{}".format(postfix))
-        # 保存下对应的code1和code2
-        code_pairs_file_path = os.path.join(folder, "cached_{}.pkl".format(postfix))
-        code_pairs = []
-        # try:
-        #     self.examples = torch.load(cache_file_path)
-        #     with open(code_pairs_file_path, 'rb') as f:
-        #         code_pairs = pickle.load(f)
-        #     logger.info("Loading features from cached file %s", cache_file_path)
-
-        # except:
+        
         logger.info("Creating features from dataset file at %s", file_path)
         with open("/".join(index_filename.split("/")[:-1]) + "/data.jsonl") as f:
             for line in f:
@@ -275,65 +259,11 @@ class TextDataset(Dataset):
                 else:
                     label = 1
                 data.append((url1, url2, label, tokenizer, args, cache, url_to_code))
-        # data = data[:100]
-        # only use 10% valid data to keep best model
-        # if 'valid' in file_path:
-        # data=random.sample(data,int(len(data)*0.1))
-        # for sing_example in data:
-        #     code_pairs.append([sing_example[0],
-        #                         sing_example[1],
-        #                         url_to_code[sing_example[0]],
-        #                         url_to_code[sing_example[1]]])
-        # with open(code_pairs_file_path, 'wb') as f:
-        #     pickle.dump(code_pairs, f)
-        # convert example to input features
+        
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         self.examples = pool.map(
             convert_examples_to_features, tqdm(data, total=len(data))
         )
-        # self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
-        # torch.save(self.examples, cache_file_path)
-
-        if "train" in file_path:
-            for idx, example in enumerate(self.examples[:3]):
-                logger.info("*** Example ***")
-                logger.info("idx: {}".format(idx))
-                logger.info("label: {}".format(example.label))
-                logger.info(
-                    "input_tokens_1: {}".format(
-                        [x.replace("\u0120", "_") for x in example.input_tokens_1]
-                    )
-                )
-                logger.info(
-                    "input_ids_1: {}".format(" ".join(map(str, example.input_ids_1)))
-                )
-                logger.info("position_idx_1: {}".format(example.position_idx_1))
-                logger.info(
-                    "dfg_to_code_1: {}".format(
-                        " ".join(map(str, example.dfg_to_code_1))
-                    )
-                )
-                logger.info(
-                    "dfg_to_dfg_1: {}".format(" ".join(map(str, example.dfg_to_dfg_1)))
-                )
-
-                logger.info(
-                    "input_tokens_2: {}".format(
-                        [x.replace("\u0120", "_") for x in example.input_tokens_2]
-                    )
-                )
-                logger.info(
-                    "input_ids_2: {}".format(" ".join(map(str, example.input_ids_2)))
-                )
-                logger.info("position_idx_2: {}".format(example.position_idx_2))
-                logger.info(
-                    "dfg_to_code_2: {}".format(
-                        " ".join(map(str, example.dfg_to_code_2))
-                    )
-                )
-                logger.info(
-                    "dfg_to_dfg_2: {}".format(" ".join(map(str, example.dfg_to_dfg_2)))
-                )
 
     def __len__(self):
         return len(self.examples)
@@ -434,22 +364,7 @@ def train(args, train_dataset, model, tokenizer):
     # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if not any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": args.weight_decay,
-        },
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": 0.0,
-        },
+        {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0}
     ]
     optimizer = AdamW(
         optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon
@@ -531,7 +446,6 @@ def train(args, train_dataset, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                output_flag = True
                 avg_loss = round(
                     np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4
                 )
@@ -638,9 +552,6 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     return result
 
 
-import time
-
-
 def test(args, model, tokenizer, best_threshold=0):
     # build dataloader
     eval_dataset = TextDataset(tokenizer, args, file_path=args.test_data_file)
@@ -665,7 +576,6 @@ def test(args, model, tokenizer, best_threshold=0):
     model.eval()
     logits = []
     y_trues = []
-    time_count = []
     for batch in tqdm(eval_dataloader):
         (
             inputs_ids_1,
@@ -677,7 +587,6 @@ def test(args, model, tokenizer, best_threshold=0):
             labels,
         ) = [x.to(args.device) for x in batch]
         with torch.no_grad():
-            time_start = time.time()
             lm_loss, logit = model(
                 inputs_ids_1,
                 position_idx_1,
@@ -687,8 +596,6 @@ def test(args, model, tokenizer, best_threshold=0):
                 attn_mask_2,
                 labels,
             )
-            time_end = time.time()
-            time_count.append(time_end - time_start)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
@@ -699,7 +606,6 @@ def test(args, model, tokenizer, best_threshold=0):
     logits = np.concatenate(logits, 0)
     # np.save("../../../data/clone_search/preds_unlabel_train_gcb", logits)
     # print(logits)
-    print(sum(time_count) / len(time_count))
     y_preds = logits[:, 1] > best_threshold
     y_trues = np.concatenate(y_trues, 0)
     from sklearn.metrics import recall_score
