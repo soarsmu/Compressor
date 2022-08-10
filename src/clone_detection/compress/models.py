@@ -1,9 +1,12 @@
+"""Only Model, biLSTM and distill_loss are used in experiments."""
+
 import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.nn import CrossEntropyLoss
+
 
 class LSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
@@ -12,7 +15,7 @@ class LSTM(nn.Module):
         self.lstm = nn.LSTM(input_size=input_dim,
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
-                            batch_first=True, 
+                            batch_first=True,
                             bidirectional=False,
                             dropout=0.2)
         self.dense = nn.Linear(hidden_dim*2, hidden_dim)
@@ -26,7 +29,7 @@ class LSTM(nn.Module):
         hidden = hidden[:, -1, :]
         hidden = hidden.reshape(-1, hidden.size(-1)*2)
         hidden = self.dense(hidden)
-        # hidden = torch.cat((hidden[:, -1, :], hidden[:, -2, :]), dim=1)
+
         logits = self.fc(hidden)
         prob = F.softmax(logits)
 
@@ -38,6 +41,7 @@ class LSTM(nn.Module):
         else:
             return prob
 
+
 class biLSTM(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(biLSTM, self).__init__()
@@ -45,7 +49,7 @@ class biLSTM(nn.Module):
         self.lstm = nn.LSTM(input_size=input_dim,
                             hidden_size=hidden_dim,
                             num_layers=n_layers,
-                            batch_first=True, 
+                            batch_first=True,
                             bidirectional=True,
                             dropout=0.2)
         self.dense = nn.Linear(hidden_dim * 2, 200)
@@ -70,16 +74,17 @@ class biLSTM(nn.Module):
         else:
             return prob
 
+
 class GRU(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(GRU, self).__init__()
         self.embedding = nn.Embedding(vocab_size, input_dim)
         self.gru = nn.GRU(input_size=input_dim,
-                            hidden_size=hidden_dim,
-                            num_layers=n_layers,
-                            batch_first=True, 
-                            bidirectional=False,
-                            dropout=0.2)
+                          hidden_size=hidden_dim,
+                          num_layers=n_layers,
+                          batch_first=True,
+                          bidirectional=False,
+                          dropout=0.2)
         self.dense = nn.Linear(hidden_dim*2, hidden_dim)
         self.fc = nn.Linear(hidden_dim, n_labels)
 
@@ -109,11 +114,11 @@ class biGRU(nn.Module):
         super(biGRU, self).__init__()
         self.embedding = nn.Embedding(vocab_size, input_dim)
         self.gru = nn.GRU(input_size=input_dim,
-                            hidden_size=hidden_dim,
-                            num_layers=n_layers,
-                            batch_first=True, 
-                            bidirectional=True,
-                            dropout=0.2)
+                          hidden_size=hidden_dim,
+                          num_layers=n_layers,
+                          batch_first=True,
+                          bidirectional=True,
+                          dropout=0.2)
         self.dense = nn.Linear(hidden_dim*4, hidden_dim*2)
         self.fc = nn.Linear(hidden_dim * 2, n_labels)
 
@@ -136,6 +141,7 @@ class biGRU(nn.Module):
         else:
             return prob
 
+
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, vocab_size=5000):
@@ -156,13 +162,17 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, : x.size(1), :]
         return x
 
+
 class Transformer(nn.Module):
     def __init__(self, vocab_size, input_dim, hidden_dim, n_labels, n_layers):
         super(Transformer, self).__init__()
         self.embedding = nn.Embedding(vocab_size, input_dim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=8, dim_feedforward=hidden_dim, dropout=0.2)
-        self.pos_encoder = PositionalEncoding(d_model=input_dim, vocab_size=vocab_size)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, n_layers)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=input_dim, nhead=8, dim_feedforward=hidden_dim, dropout=0.2)
+        self.pos_encoder = PositionalEncoding(
+            d_model=input_dim, vocab_size=vocab_size)
+        self.transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, n_layers)
         self.dense = nn.Linear(input_dim*2, input_dim)
         self.fc = nn.Linear(input_dim, n_labels)
         self.input_dim = input_dim
@@ -191,7 +201,8 @@ def loss_func(preds, labels, knowledge):
     labels = labels.long()
     knowledge = knowledge.long()
 
-    loss = 0.5 * F.cross_entropy(preds, 1-labels) + 0.5 * F.cross_entropy(preds, 1-knowledge)
+    loss = 0.5 * F.cross_entropy(preds, 1-labels) + \
+        0.5 * F.cross_entropy(preds, 1-knowledge)
 
     return loss
 
@@ -206,7 +217,9 @@ def mix_loss_func(preds, labels, knowledge):
         if l == -1.0:
             loss += F.cross_entropy(p, (1-k).view(1))
         else:
-            loss += 0.5 * F.cross_entropy(p, (1-l).view(1)) + 0.5 * F.cross_entropy(p, (1-k).view(1))
+            loss += 0.5 * \
+                F.cross_entropy(p, (1-l).view(1)) + 0.5 * \
+                F.cross_entropy(p, (1-k).view(1))
 
     loss = loss/labels.size(0)
     return loss
@@ -214,7 +227,8 @@ def mix_loss_func(preds, labels, knowledge):
 
 def distill_loss(logits, knowledge, temperature=1.0):
 
-    loss = F.kl_div(F.log_softmax(logits/temperature), F.softmax(knowledge/temperature), reduction="batchmean") * (temperature**2)
+    loss = F.kl_div(F.log_softmax(logits/temperature), F.softmax(knowledge /
+                    temperature), reduction="batchmean") * (temperature**2)
     # Equivalent to cross_entropy for soft labels, from https://github.com/huggingface/transformers/blob/50792dbdcccd64f61483ec535ff23ee2e4f9e18d/examples/distillation/distiller.py#L330
 
     return loss

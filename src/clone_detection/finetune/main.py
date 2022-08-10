@@ -12,7 +12,6 @@ from utils import set_seed, load_and_cache_examples
 from sklearn.metrics import recall_score, precision_score, f1_score
 from torch.utils.data import DataLoader, SequentialSampler, RandomSampler
 from transformers import AdamW, get_linear_schedule_with_warmup, RobertaConfig, RobertaModel, RobertaTokenizer
-# from memory_profiler import profile 
 
 warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
@@ -32,10 +31,10 @@ def train(args, model, tokenizer):
     args.num_train_epochs = args.epoch
     model.to(args.device)
 
-    no_decay = ['bias', 'LayerNorm.weight']
+    no_decay = ["bias", "LayerNorm.weight"]
 
     optimizer_grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters(
+        {"params": [p for n, p in model.named_parameters(
         ) if not any(nd in n for nd in no_decay)]}
     ]
 
@@ -50,9 +49,11 @@ def train(args, model, tokenizer):
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d", args.per_gpu_train_batch_size)
+    logger.info("  Instantaneous batch size per GPU = %d",
+                args.per_gpu_train_batch_size)
     logger.info("  Total train batch size  = %d", args.train_batch_size)
-    logger.info("  Gradient Accumulation steps = %d", args.gradient_accumulation_steps)
+    logger.info("  Gradient Accumulation steps = %d",
+                args.gradient_accumulation_steps)
     logger.info("  Total optimization steps = %d", args.max_steps)
 
     global_step = 0
@@ -76,7 +77,8 @@ def train(args, model, tokenizer):
                 loss = loss / args.gradient_accumulation_steps
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), args.max_grad_norm)
 
             tr_loss += loss.item()
             tr_num += 1
@@ -91,7 +93,8 @@ def train(args, model, tokenizer):
                 optimizer.zero_grad()
                 scheduler.step()
                 global_step += 1
-                avg_loss = round(np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
+                avg_loss = round(
+                    np.exp((tr_loss - logging_loss) / (global_step - tr_nb)), 4)
 
                 if args.logging_steps > 0 and global_step % args.logging_steps == 0:
                     logging_loss = tr_loss
@@ -100,7 +103,8 @@ def train(args, model, tokenizer):
                 if args.save_steps > 0 and global_step % args.save_steps == 0:
 
                     if args.evaluate_during_training:
-                        results = evaluate(args, model, tokenizer, eval_when_training=True)
+                        results = evaluate(
+                            args, model, tokenizer, eval_when_training=True)
 
                     logger.info("  "+"*"*20)
                     logger.info("  Current F1:%s", round(results["eval_f1"], 4))
@@ -110,18 +114,17 @@ def train(args, model, tokenizer):
                     if results["eval_f1"] >= best_f1:
                         best_f1 = results["eval_f1"]
 
-                        checkpoint_prefix = 'checkpoint'
-                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
+                        checkpoint_prefix = "checkpoint"
+                        output_dir = os.path.join(
+                            args.output_dir, "{}".format(checkpoint_prefix))
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)
 
-                        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+                        output_dir = os.path.join(output_dir, "{}".format("model.bin"))
                         torch.save(model.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                     else:
                         logger.info("Model checkpoint are not saved")
-
-import time
 
 
 def evaluate(args, model, tokenizer, eval_when_training=False):
@@ -140,7 +143,6 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     model.eval()
     logits = []
     labels = []
-    time_count = []
 
     bar = tqdm(eval_dataloader, total=len(eval_dataloader))
     for batch in bar:
@@ -148,23 +150,20 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
         inputs = batch[0].to(args.device)
         label = batch[1].to(args.device)
         with torch.no_grad():
-            time_start = time.time()
             logit = model(inputs)
-            time_end = time.time()
-            time_count.append(time_end-time_start)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
-    print(sum(time_count)/len(time_count))
+
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-    # np.save("../../../data/clone_search/preds_unlabel", logits)
+
     logits = F.softmax(logits)
     y_preds = logits[:, 1] > 0.5
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)
     f1 = f1_score(labels, y_preds)
     result = {
-        "eval_acc": np.mean(labels==y_preds),
+        "eval_acc": np.mean(labels == y_preds),
         "eval_recall": float(recall),
         "eval_precision": float(precision),
         "eval_f1": float(f1)
@@ -176,71 +175,6 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     return result
 
-def evaluate_mrr(args, model, tokenizer, eval_when_training=False):
-    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
-    eval_sampler = SequentialSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,
-                                 batch_size=args.eval_batch_size, num_workers=8, pin_memory=True)
-
-    if args.n_gpu > 1 and eval_when_training is False:
-        model = torch.nn.DataParallel(model)
-
-    logger.info("***** Running evaluation *****")
-    logger.info("  Num examples = %d", len(eval_dataset))
-    logger.info("  Batch size = %d", args.eval_batch_size)
-
-    model.eval()
-    predict_all = []
-    labels_all = []
-    ranks = []
-    top5 = 0
-    top10 = 0
-    top20 = 0
-    num_batch = 0
-    with torch.no_grad():
-        bar = tqdm(eval_dataloader, total=len(eval_dataloader))
-        bar.set_description("Evaluation")
-        for batch in bar:
-            texts = batch[0].to("cuda")        
-            label = batch[1].to("cuda")
-            prob = model(texts)
-
-            predict_all.append(prob.cpu().numpy())
-            labels_all.append(label.cpu().numpy())
-            correct_score = predict_all[0][0][1]
-            # print(predict_all, correct_score)
-            # exit()
-            scores = np.array([pred[1] for pred in predict_all[0]])
-            rank = np.sum(scores >= correct_score)
-            if int(rank) <=20:
-                top20 += 1
-            if int(rank) <=10:
-                top10 += 1
-            if int(rank) <=3:
-                top5 += 1
-
-            ranks.append(rank)
-    mean_mrr = np.mean(1.0 / np.array(ranks))
-    print('num of all ranks:', len(ranks))
-    print("mrr: {}".format(mean_mrr))
-    print ('top5:', top5)
-    print ('top10:', top10)
-    print ('top20:', top20)
-    predict_all = np.concatenate(predict_all, 0)
-    labels_all = np.concatenate(labels_all, 0)
-
-    preds = predict_all[:, 1] > 0.5
-    recall = recall_score(labels_all, preds)
-    precision = precision_score(labels_all, preds)
-    f1 = f1_score(labels_all, preds)
-    results = {
-        "eval_acc": np.mean(labels_all==preds),
-        "eval_precision": float(precision),
-        "eval_recall": float(recall),
-        "eval_f1": float(f1)
-    }
-    print(results)
-    return results
 
 def main():
     parser = argparse.ArgumentParser()
@@ -255,18 +189,18 @@ def main():
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-    parser.add_argument("--do_train", action='store_true',
+    parser.add_argument("--do_train", action="store_true",
                         help="Whether to run training.")
-    parser.add_argument("--do_eval", action='store_true',
+    parser.add_argument("--do_eval", action="store_true",
                         help="Whether to run eval on the dev set.")
-    parser.add_argument("--evaluate_during_training", action='store_true',
+    parser.add_argument("--evaluate_during_training", action="store_true",
                         help="Run evaluation during training at each logging step.")
 
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                         help="Number of updates steps to accumulate before performing a backward/update pass.")
     parser.add_argument("--learning_rate", default=5e-5, type=float,
                         help="The initial learning rate for Adam.")
@@ -276,21 +210,19 @@ def main():
                         help="Max gradient norm.")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument('--logging_steps', type=int, default=50,
+    parser.add_argument("--logging_steps", type=int, default=50,
                         help="Log every X updates steps.")
-    parser.add_argument('--save_steps', type=int, default=50,
+    parser.add_argument("--save_steps", type=int, default=50,
                         help="Save checkpoint every X updates steps.")
-    parser.add_argument("--no_cuda", action='store_true',
+    parser.add_argument("--no_cuda", action="store_true",
                         help="Avoid using CUDA when available")
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument("--seed", type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--epoch', type=int, default=42,
+    parser.add_argument("--epoch", type=int, default=42,
                         help="random seed for initialization")
 
     args = parser.parse_args()
-    args.device = torch.device("cpu")
-    # args.device = torch.device(
-    #     "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+    args.device = torch.device("cuda")
     args.n_gpu = torch.cuda.device_count()
 
     args.per_gpu_train_batch_size = args.train_batch_size//args.n_gpu
@@ -313,7 +245,8 @@ def main():
         args.block_size = tokenizer.max_len_single_sentence
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
 
-    model = Model(RobertaModel.from_pretrained(args.model_name, config=config), config, args)
+    model = Model(RobertaModel.from_pretrained(
+        args.model_name, config=config), config, args)
 
     logger.info("Training/evaluation parameters %s", args)
 
@@ -321,24 +254,11 @@ def main():
         train(args, model, tokenizer)
 
     if args.do_eval:
-        # # print(model)
-        # from torchinfo import summary
-        # # inputs = torch.randint(config.vocab_size, (1, 800))
-        # # flops, _ = profile(model, (inputs, ), verbose=False)
-
-        # summary(model, input_size=(1, 800), device="cpu", dtypes=['torch.IntTensor'])
-        # params = sum(p.numel() for p in model.parameters())
-        # print(params)
-        # exit()
-        # # logger.info(flops)
-        
-        # logger.info("size %f", params)
-        # exit()
         checkpoint_prefix = "checkpoint/model.bin"
         output_dir = os.path.join(
             args.output_dir, "{}".format(checkpoint_prefix))
-        model.load_state_dict({k.replace("module.", ""):v for k, v in torch.load(output_dir).items()}, strict=False)
-        # model.to(args.device)
+        model.load_state_dict({k.replace("module.", ""): v for k, v in torch.load(
+            output_dir).items()}, strict=False)
         model.to("cpu")
         evaluate(args, model, tokenizer)
 
