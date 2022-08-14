@@ -166,32 +166,19 @@ def main():
     args.target_size = args.target_size * 1e6/4
     logger.info("***Start GA search for %d generations, %d population, target model size %d MB***" %
           (args.generation_size, args.population_size, args.target_size*4/1e6))
-    
-    best_candidates = []
 
-    # repeat the search for multiple times
-    for i in tqdm(range(10)):
-        searcher = GA_search(args, search_space)
-        searcher.initialization()
-        for gen in tqdm(range(args.generation_size)):
-            logger.info("***Start generate %d***" %(gen))
-            searcher.generation()
-        
-        for genome in searcher.population:
-            searcher.fitness(genome)
-        graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
-
-        logger.info(graded_genome[0].gene_param)
-        logger.info(graded_genome[0].fitness)
-        logger.info(searcher.best_gene)
-        best_candidates.append(graded_genome[0])
+    searcher = GA_search(args, search_space)
+    searcher.initialization()
+    for gen in tqdm(range(args.generation_size), desc="Searching"):
+        # logger.info("***Start generate %d***" %(gen))
+        searcher.generation()
     
-    best_candidates = [x for x in sorted(best_candidates, key=lambda x: x.fitness, reverse=True)]
-    for b in best_candidates:
-        logger.info(b.gene_param)
-        logger.info(b.fitness)
+    for genome in searcher.population:
+        searcher.fitness(genome)
+    graded_genome = [x for x in sorted(searcher.population, key=lambda x: x.fitness, reverse=True)]
+
     logger.info("the best one:")
-    logger.info(best_candidates[0].gene_param)
+    logger.info(graded_genome[0].gene_param)
 
 
 if __name__ == "__main__":

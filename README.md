@@ -50,7 +50,7 @@ pip install -r requirements.txt
 │       ├── checkpoint (trained models of compressed models)
 │       └── finetune (code for compressing and finetuning GraphCodeBERT on vulnerability prediction)
 │ 
-└── python_parser (a parser to turn code into data flow graph, specifically designed for GraphCodeBERT, from its offical repository)
+└── parser (a parser to turn code into data flow graph, specifically designed for GraphCodeBERT, from its offical repository)
 ```
 
 ## How to run
