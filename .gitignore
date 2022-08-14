@@ -128,15 +128,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-*.bin
-
-
 *.gold
 *.output
 *.jsonl
 *.json
 *.txt
-*.npy
 
 cached_*
 *.csv
