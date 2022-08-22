@@ -2,7 +2,7 @@
 
 This replication package contains the source code for fine-tuning pre-trained models, model simplification and training, as well as all trained compressed models.
 
-**Documentation is still under construction. We will update it later (Before 5 Sep)**
+**The documentation is still under construction as we are fully occupied with other work for ICSE 2023. We will update the documentation later (Before 5 Sep)**
 
 ## Environment configuration
 
