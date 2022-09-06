@@ -28,7 +28,7 @@ def BPE(args, texts, vocab_size, file_path, logger):
     tokenizer.train_from_iterator(texts, trainer)
     folder = "/".join(file_path.split("/")[:-1])
     tokenizer_path = os.path.join(
-        folder, "BPE" + "_"+args.type+"_" + str(vocab_size) + ".json")
+        folder, "BPE" + "_" + str(vocab_size) + ".json")
     tokenizer.save(tokenizer_path, pretty=True)
     logger.info("Creating vocabulary to file %s", tokenizer_path)
 
@@ -80,7 +80,7 @@ class DistilledDataset(Dataset):
 
 
         tokenizer_path = os.path.join(
-            folder, "BPE" + "_"+args.type+"_" + str(vocab_size) + ".json")
+            folder, "BPE" + "_" + str(vocab_size) + ".json")
 
         if os.path.exists(tokenizer_path):
             tokenizer = Tokenizer.from_file(tokenizer_path)

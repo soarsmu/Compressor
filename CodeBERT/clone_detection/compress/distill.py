@@ -63,14 +63,14 @@ def train(args, model, train_dataloader, eval_dataloader):
         if dev_acc >= dev_best_acc:
             dev_best_acc = dev_acc
             output_dir = os.path.join(
-                args.model_dir, args.size, args.type, "best")
+                args.model_dir, args.size, "best")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(
                 output_dir, "model.bin"))
             logger.info("New best model found and saved.")
         else:
             output_dir = os.path.join(
-                args.model_dir, args.size, args.type, "recent")
+                args.model_dir, args.size, "recent")
             os.makedirs(output_dir, exist_ok=True)
             torch.save(model.state_dict(), os.path.join(
                 output_dir, "model.bin"))
@@ -130,8 +130,6 @@ def main():
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--choice", default="best", type=str,
                         help="Model to test")
-    parser.add_argument("--type", default="label_train", type=str,
-                        help="Model training type")
     parser.add_argument("--size", default="3", type=str,
                         help="Model size")
     parser.add_argument("--vocab_size", default=10000, type=int,
@@ -200,7 +198,7 @@ def main():
 
     if args.do_eval:
         model_dir = os.path.join(
-            args.model_dir, args.size, args.type, args.choice, "model.bin")
+            args.model_dir, args.size, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
         eval_res = evaluate(model, eval_dataloader)
