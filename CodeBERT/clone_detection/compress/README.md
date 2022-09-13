@@ -121,7 +121,7 @@ CUDA_VISIBLE_DEVICES=4 python d_bert.py \
     --epochs 10 \
     --seed 123456 2>&1| tee ../logs/eval_n_baseline_gcb.log
 
-CUDA_VISIBLE_DEVICES=6 python d_bert.py \
+CUDA_VISIBLE_DEVICES=6 python3 lstm_baseline.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \

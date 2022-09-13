@@ -4,7 +4,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt -y upgrade
 RUN apt-get -y update
-RUN apt -y install software-properties-common git vim htop tmux
+RUN apt -y install software-properties-common git vim htop tmux wget
 
 RUN add-apt-repository -y ppa:deadsnakes/ppa
 RUN apt -y upgrade
