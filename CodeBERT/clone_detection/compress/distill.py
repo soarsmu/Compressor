@@ -178,12 +178,12 @@ def main():
     config.hidden_dropout_prob = 0.2
     model = Model(RobertaModel(config=config), config)
 
-    if args.do_train:
-        train_dataset = DistilledDataset(
-            args, args.vocab_size, args.train_data_file, logger)
-        train_sampler = RandomSampler(train_dataset)
-        train_dataloader = DataLoader(
-            train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    # if args.do_train:
+    train_dataset = DistilledDataset(
+        args, args.vocab_size, args.train_data_file, logger)
+    train_sampler = RandomSampler(train_dataset)
+    train_dataloader = DataLoader(
+        train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
 
     eval_dataset = DistilledDataset(
         args, args.vocab_size, args.eval_data_file, logger)
