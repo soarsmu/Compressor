@@ -13,7 +13,7 @@ CUDA_VISIBLE_DEVICES=2 python3 main.py \
     --eval_data_file=../../../data/clone_search/valid_sampled.txt \
     --epoch 5 \
     --block_size 400 \
-    --train_batch_size 2 \
+    --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -29,7 +29,7 @@ CUDA_VISIBLE_DEVICES=4 python3 main.py \
     --train_data_file=../../../data/clone_search/train_sampled.txt \
     --eval_data_file=../../../data/clone_search/test_sampled.txt \
     --block_size 400 \
-    --eval_batch_size 1 \
+    --eval_batch_size 64 \
     --seed 123456 2>&1| tee ../logs/eval.log
 ```
 
