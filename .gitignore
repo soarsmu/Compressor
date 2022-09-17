@@ -131,7 +131,7 @@ dmypy.json
 *.gold
 *.output
 *.jsonl
-# *.json
+*.json
 *.txt
 
 cached_*
