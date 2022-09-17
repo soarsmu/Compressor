@@ -1,5 +1,5 @@
 
-**Note**: before running the following scripts, please make sure `../../../data/clone_detection/preds_unlabel_train.npy` exist.
+**Note**: before running the following scripts, please make sure soft labels `../../../data/clone_detection/preds_unlabel_train.npy` exist.
 
 If it does not exist, please go to `../finetune/README.md` to see how to get it.
 
