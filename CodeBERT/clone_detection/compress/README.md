@@ -55,7 +55,7 @@ In our paper, the architecture-related hyperparamenters for 25 MB is `{'attentio
 
 We release a trained 25 MB model in `../checkpoint/25`. For evaluating this model, please run:
 ```
-CUDA_VISIBLE_DEVICES=1 python3 distill.py \
+python3 distill.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \
@@ -101,7 +101,7 @@ In our paper, the architecture-related hyperparamenters for 50 MB is `{'attentio
 
 We release a trained 50 MB model in `../checkpoint/50`. For evaluating this model, please run:
 ```
-CUDA_VISIBLE_DEVICES=2 python3 distill.py \
+python3 distill.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \
@@ -145,16 +145,12 @@ python3 distill.py \
 
 For evaluating the existing LSTM baseline model, please run:
 ```
-CUDA_VISIBLE_DEVICES=6 python3 lstm_baseline.py \
+python3 lstm_baseline.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \
-    --model_dir ../baseline \
-    --size o \
-    --type unlabel_train \
-    --attention_heads 8 \
+    --model_dir ../checkpoint \
     --hidden_dim 300 \
-    --intermediate_size 64 \
     --n_layers 1 \
     --vocab_size 1000 \
     --block_size 400 \
@@ -167,16 +163,12 @@ CUDA_VISIBLE_DEVICES=6 python3 lstm_baseline.py \
 
 For training the LSTM baseline model from scratch, please run:
 ```
-CUDA_VISIBLE_DEVICES=6 python3 lstm_baseline.py \
+python3 lstm_baseline.py \
     --do_train \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
-    --model_dir ../baseline \
-    --size o \
-    --type unlabel_train \
-    --attention_heads 8 \
+    --model_dir ../checkpoint \
     --hidden_dim 300 \
-    --intermediate_size 64 \
     --n_layers 1 \
     --vocab_size 1000 \
     --block_size 400 \

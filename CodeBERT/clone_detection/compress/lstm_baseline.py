@@ -128,9 +128,7 @@ def main():
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--choice", default="best", type=str,
                         help="Model to test")
-    parser.add_argument("--type", default="label_train", type=str,
-                        help="Model training type")
-    parser.add_argument("--size", default="3", type=str,
+    parser.add_argument("--size", default="baseline", type=str,
                         help="Model size")
     parser.add_argument("--vocab_size", default=10000, type=int,
                         help="Vocabulary Size.")
@@ -169,12 +167,12 @@ def main():
     model = biLSTM(args.vocab_size, 300, args.hidden_dim,
                    n_labels, args.n_layers)
 
-    if args.do_train:
-        train_dataset = DistilledDataset(
-            args, args.vocab_size, args.train_data_file, logger)
-        train_sampler = RandomSampler(train_dataset)
-        train_dataloader = DataLoader(
-            train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
+    # if args.do_train:
+    train_dataset = DistilledDataset(
+        args, args.vocab_size, args.train_data_file, logger)
+    train_sampler = RandomSampler(train_dataset)
+    train_dataloader = DataLoader(
+        train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
 
     eval_dataset = DistilledDataset(
         args, args.vocab_size, args.eval_data_file, logger)
@@ -189,7 +187,7 @@ def main():
 
     if args.do_eval:
         model_dir = os.path.join(
-            args.model_dir, args.size, args.type, args.choice, "model.bin")
+            args.model_dir, args.size, args.choice, "model.bin")
         model.load_state_dict(torch.load(model_dir))
         model.to(args.device)
         eval_res = evaluate(model, eval_dataloader)
