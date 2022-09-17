@@ -9,6 +9,7 @@ In our paper, the architecture-related hyperparamenters for 3 MB is `{'attention
 
 We release a trained 3 MB model in `../checkpoint/3`. For evaluating this model, please run:
 ```
+mkdir -p ../logs
 python3 distill.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \

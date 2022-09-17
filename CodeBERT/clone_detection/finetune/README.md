@@ -18,7 +18,7 @@ python3 main.py \
 ## Get soft labels
 For getting soft labels to do knowledge distillation later, please run:
 ```
-CUDA_VISIBLE_DEVICES=4 python3 main.py \
+python3 main.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/train_sampled.txt \
     --eval_data_file=../../../data/clone_detection/unlabel_train.txt \

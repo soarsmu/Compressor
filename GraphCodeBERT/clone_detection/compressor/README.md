@@ -1,54 +1,58 @@
+**Note**: before running the following scripts, please make sure soft labels `../../../data/clone_detection/preds_unlabel_train.npy` exist.
+
+If it does not exist, please go to `../finetune/README.md` to see how to get it.
+
+GraphCodeBERT need a parser to extract data flows from the source code, please go to `./parser` to compile the parser first. Pls run:
+```
+cd parser
+bash build.sh
+```
+
+## 3 MB Model
+
+In our paper, the architecture-related hyperparamenters for 3 MB is `{'attention_heads': 8, 'hidden_dim': 96, 'intermediate_size': 64, 'n_layers': 12, 'vocab_size': 1000}`.
+
+We release a trained 3 MB model in `../checkpoint/3`. For evaluating this model, please run:
 ```
 mkdir -p ../logs
-CUDA_VISIBLE_DEVICES=5,0 python main.py \
+python3 distill.py \
     --output_dir=../checkpoint \
     --config_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_train \
-    --train_data_file=../../../data/clone_search/label_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
-    --epoch 3 \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_eval \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
+    --epoch 10 \
+    --size 3 \
+    --type unlabel_train \
+    --attention_heads 8 \
+    --hidden_dim 96 \
+    --intermediate_size 64 \
+    --n_layers 12 \
+    --vocab_size 1000 \
     --code_length 384 \
     --data_flow_length 128 \
-    --train_batch_size 12 \
-    --eval_batch_size 32 \
-    --learning_rate 2e-5 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456 2>&1| tee ../logs/train.log
+    --seed 123456  2>&1 | tee ../logs/eval_3.log
+```
 
-
-CUDA_VISIBLE_DEVICES=5 python main.py \
-    --output_dir=../checkpoint \
-    --config_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --do_test \
-    --train_data_file=../../../data/clone_search/label_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/unlabel_train.txt \
-    --epoch 4 \
-    --code_length 384 \
-    --data_flow_length 128 \
-    --train_batch_size 12 \
-    --eval_batch_size 1 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee ../logs/eval.log
-
-
-CUDA_VISIBLE_DEVICES=4 python distill.py \
+For training a 3 MB model from scratch, please run:
+```
+python3 distill.py \
     --output_dir=../checkpoint \
     --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --do_train \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
     --epoch 10 \
     --size 3 \
     --type unlabel_train \
@@ -64,73 +68,26 @@ CUDA_VISIBLE_DEVICES=4 python distill.py \
     --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/distill_3.log
+    --seed 123456  2>&1 | tee ../logs/train_3.log
+```
 
-CUDA_VISIBLE_DEVICES=0 python distill.py \
+## 25 MB Model
+
+In our paper, the architecture-related hyperparamenters for 25 MB is `{'attention_heads': 16, 'hidden_dim': 432, 'intermediate_size': 128, 'n_layers': 6, 'vocab_size': 1000}`.
+
+We release a trained 25 MB model in `../checkpoint/25`. For evaluating this model, please run:
+```
+python3 distill.py \
     --output_dir=../checkpoint \
     --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --do_test \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
+    --do_eval \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
     --epoch 10 \
-    --size 3 \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 96 \
-    --intermediate_size 64 \
-    --n_layers 12 \
-    --vocab_size 1000 \
-    --code_length 384 \
-    --data_flow_length 128 \
-    --train_batch_size 12 \
-    --eval_batch_size 1 \
-    --learning_rate 1e-4 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/eval_distill_3.log
-
-
-CUDA_VISIBLE_DEVICES=0 python distill.py \
-    --output_dir=../checkpoint \
-    --config_name=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --do_test \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
-    --epoch 10 \
-    --size 0.01 \
-    --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 176 \
-    --intermediate_size 64 \
-    --n_layers 6 \
-    --vocab_size 1000 \
-    --code_length 384 \
-    --data_flow_length 128 \
-    --train_batch_size 12 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/eval_distill_0.01.log
-
-
-CUDA_VISIBLE_DEVICES=4 python distill.py \
-    --output_dir=../checkpoint \
-    --config_name=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --do_train \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
-    --epoch 10 \
-    --size 0.05 \
+    --size 25 \
     --type unlabel_train \
     --attention_heads 16 \
     --hidden_dim 432 \
@@ -144,20 +101,22 @@ CUDA_VISIBLE_DEVICES=4 python distill.py \
     --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/distill_0.05.log
+    --seed 123456  2>&1 | tee ../logs/eval_25.log
+```
 
-
-CUDA_VISIBLE_DEVICES=4 python distill.py \
+For training a 25 MB model from scratch, please run:
+```
+python3 distill.py \
     --output_dir=../checkpoint \
     --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --do_test \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
+    --do_train \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
     --epoch 10 \
-    --size 0.05 \
+    --size 25 \
     --type unlabel_train \
     --attention_heads 16 \
     --hidden_dim 432 \
@@ -171,20 +130,53 @@ CUDA_VISIBLE_DEVICES=4 python distill.py \
     --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/eval_distill_0.05.log
+    --seed 123456  2>&1 | tee ../logs/train_25.log
+```
+## 50 MB Model
 
+In our paper, the architecture-related hyperparamenters for 50 MB is `{'attention_heads': 16, 'hidden_dim': 480, 'intermediate_size': 576, 'n_layers': 6, 'vocab_size': 6000}`.
 
-CUDA_VISIBLE_DEVICES=5 python distill.py \
+We release a trained 50 MB model in `../checkpoint/50`. For evaluating this model, please run:
+```
+python3 distill.py \
+    --output_dir=../checkpoint \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_eval \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
+    --epoch 10 \
+    --size 50 \
+    --type unlabel_train \
+    --attention_heads 16 \
+    --hidden_dim 480 \
+    --intermediate_size 576 \
+    --n_layers 6 \
+    --vocab_size 6000 \
+    --code_length 384 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 1e-4 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee ../logs/eval_50.log
+```
+For training a 50 MB model from scratch, please run:
+```
+python3 distill.py \
     --output_dir=../checkpoint \
     --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --do_train \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
+    --test_data_file=../../../data/clone_detection/test_sampled.txt \
     --epoch 10 \
-    --size 0.1 \
+    --size 50 \
     --type unlabel_train \
     --attention_heads 16 \
     --hidden_dim 480 \
@@ -198,49 +190,36 @@ CUDA_VISIBLE_DEVICES=5 python distill.py \
     --learning_rate 1e-4 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/distill_0.1.log
+    --seed 123456  2>&1 | tee ../logs/train_50.log
+```
+## Baseline Model
 
-
-CUDA_VISIBLE_DEVICES=5 python distill.py \
-    --output_dir=../checkpoint \
-    --config_name=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --do_test \
-    --train_data_file=../../../data/clone_search/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_search/valid_sampled.txt \
-    --test_data_file=../../../data/clone_search/test_sampled.txt \
-    --epoch 10 \
-    --size 0.1 \
-    --type unlabel_train \
-    --attention_heads 16 \
-    --hidden_dim 480 \
-    --intermediate_size 576 \
-    --n_layers 6 \
-    --vocab_size 6000 \
-    --code_length 384 \
-    --data_flow_length 128 \
-    --train_batch_size 12 \
+For evaluating the existing LSTM baseline model, please run:
+```
+python3 lstm_baseline.py \
+    --do_eval \
+    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
+    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
+    --model_dir ../checkpoint \
+    --hidden_dim 300 \
+    --n_layers 1 \
+    --vocab_size 1000 \
+    --block_size 400 \
+    --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee ../logs/eval_distill_0.1.log
+    --epochs 10 \
+    --seed 123456 2>&1| tee ../logs/eval_baseline.log
 ```
 
-
-
+For training the LSTM baseline model from scratch, please run:
 ```
-CUDA_VISIBLE_DEVICES=6 python d_bert.py \
+python3 lstm_baseline.py \
     --do_train \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
-    --model_dir ../baseline \
-    --size o_gcb \
-    --type unlabel_train \
-    --attention_heads 8 \
+    --model_dir ../checkpoint \
     --hidden_dim 300 \
-    --intermediate_size 64 \
     --n_layers 1 \
     --vocab_size 1000 \
     --block_size 400 \
@@ -248,101 +227,5 @@ CUDA_VISIBLE_DEVICES=6 python d_bert.py \
     --eval_batch_size 64 \
     --learning_rate 1e-4 \
     --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/baseline_gcb.log
-
-CUDA_VISIBLE_DEVICES=6 python d_bert.py \
-    --do_eval \
-    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
-    --model_dir ../baseline \
-    --size o_gcb \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 300 \
-    --intermediate_size 64 \
-    --n_layers 1 \
-    --vocab_size 1000 \
-    --block_size 400 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/eval_baseline_gcb.log
-
-CUDA_VISIBLE_DEVICES=4 python d_bert.py \
-    --do_train \
-    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
-    --model_dir ../baseline \
-    --size n_gcb \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 200 \
-    --intermediate_size 64 \
-    --n_layers 1 \
-    --vocab_size 1000 \
-    --block_size 400 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/n_baseline_gcb.log
-
-CUDA_VISIBLE_DEVICES=4 python d_bert.py \
-    --do_eval \
-    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
-    --model_dir ../baseline \
-    --size n_gcb \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 200 \
-    --intermediate_size 64 \
-    --n_layers 1 \
-    --vocab_size 1000 \
-    --block_size 400 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/eval_n_baseline_gcb.log
-
-
-CUDA_VISIBLE_DEVICES=0 python d_bert.py \
-    --do_train \
-    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
-    --model_dir ../baseline \
-    --size n \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 200 \
-    --intermediate_size 64 \
-    --n_layers 1 \
-    --vocab_size 1000 \
-    --block_size 400 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/n_baseline.log
-
-CUDA_VISIBLE_DEVICES=0 python d_bert.py \
-    --do_eval \
-    --train_data_file=../../../data/clone_detection/unlabel_train.txt \
-    --eval_data_file=../../../data/clone_detection/test_sampled.txt \
-    --model_dir ../baseline \
-    --size n \
-    --type unlabel_train \
-    --attention_heads 8 \
-    --hidden_dim 200 \
-    --intermediate_size 64 \
-    --n_layers 1 \
-    --vocab_size 1000 \
-    --block_size 400 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 1e-4 \
-    --epochs 10 \
-    --seed 123456 2>&1| tee ../logs/eval_n_baseline.log
+    --seed 123456 2>&1| tee ../logs/train_baseline.log
 ```

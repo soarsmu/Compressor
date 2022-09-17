@@ -415,8 +415,8 @@ def train(args, train_dataset, model, tokenizer):
                         logger.info("  Best f1:%s",round(best_f1,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = 'finetune'
-                        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))                        
+                        # checkpoint_prefix = '
+                        output_dir = args.output_dir                   
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
                         model_to_save = model.module if hasattr(model,'module') else model
@@ -457,6 +457,8 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     #calculate scores
     logits=np.concatenate(logits,0)
+    if "unlabel_train" in args.eval_data_file:
+        np.save("../../../data/clone_detection/preds_unlabel_train", logits)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0.5
 
@@ -634,14 +636,14 @@ def main():
     # Evaluation
     results = {}
     if args.do_eval:
-        checkpoint_prefix = 'finetune/model.bin'
+        checkpoint_prefix = 'model.bin'
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         results = evaluate(args, model, tokenizer)
         
     if args.do_test:
-        checkpoint_prefix = 'finetune/model.bin'
+        checkpoint_prefix = 'model.bin'
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)

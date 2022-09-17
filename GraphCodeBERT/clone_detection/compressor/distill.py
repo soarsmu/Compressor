@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 from tokenizers import Tokenizer
-from model import Model, distill_loss, mse_loss
+from model import Model, distill_loss
 from tree_sitter import Language, Parser
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler
 
@@ -188,7 +188,7 @@ class TextDataset(Dataset):
 
         folder = "/".join(file_path.split("/")[:-1])
         
-        tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(args.vocab_size) + ".json")
+        tokenizer_path = os.path.join(folder, "BPE" + "_" + str(args.vocab_size) + ".json")
         tokenizer = Tokenizer.from_file(tokenizer_path)
         logger.info("Creating features from dataset file at %s", file_path)
         with open("/".join(index_filename.split("/")[:-1])+"/data.jsonl") as f:
@@ -407,8 +407,8 @@ def train(args, train_dataset, model, tokenizer):
                         logger.info("  Best acc:%s",round(best_f1,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = "checkpoint-best-f1"
-                        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, args.type)                        
+                        checkpoint_prefix = ""
+                        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size)                        
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
                         model_to_save = model.module if hasattr(model,"module") else model
@@ -610,7 +610,7 @@ def main():
     args = parser.parse_args()
 
     # Setup CUDA, GPU
-    device = torch.device("cpu")
+    device = torch.device("cuda")
     args.n_gpu = torch.cuda.device_count()
 
     args.device = device
@@ -620,7 +620,7 @@ def main():
     logger.warning("device: %s, n_gpu: %s",device, args.n_gpu)
 
     folder = "/".join(args.train_data_file.split("/")[:-1])
-    tokenizer_path = os.path.join(folder, "BPE" + "_" + args.type + "_" + str(args.vocab_size) + ".json")
+    tokenizer_path = os.path.join(folder, "BPE" + "_" + str(args.vocab_size) + ".json")
     tokenizer = Tokenizer.from_file(tokenizer_path)
     # Set seed
     set_seed(args)
@@ -650,15 +650,15 @@ def main():
     # Evaluation
     results = {}
     if args.do_eval:
-        checkpoint_prefix = "checkpoint-best-f1/model.bin"
-        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix))  
+        checkpoint_prefix = ""
+        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, "model.bin")  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         results = evaluate(args, model, tokenizer)
         
     if args.do_test:
-        checkpoint_prefix = "checkpoint-best-f1"
-        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, args.type, "model.bin")  
+        checkpoint_prefix = ""
+        output_dir = os.path.join(args.output_dir, "{}".format(checkpoint_prefix), args.size, "model.bin")  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
         results = test(args, model, tokenizer,best_threshold=0.5)

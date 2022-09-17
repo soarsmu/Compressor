@@ -92,7 +92,7 @@ class DistilledDataset(Dataset):
                 texts.append(" ".join(url_to_code[d[1]].split()))
             tokenizer = BPE(args, texts, vocab_size, file_path, logger)
 
-        if "train" in postfix:
+        if args.do_train:
             soft_labels = np.load(os.path.join(
                 folder, "preds_unlabel_train_gcb.npy")).tolist()
 
@@ -100,7 +100,7 @@ class DistilledDataset(Dataset):
         for i, d in enumerate(data):
             lst = list(d)
             lst.append(tokenizer)
-            if "train" in postfix:
+            if args.do_train:
                 lst.append(soft_labels[i])
             else:
                 lst.append([0.1, 0.1])
