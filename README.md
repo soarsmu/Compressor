@@ -22,8 +22,13 @@ bash build.sh
 ```
 
 ## How to run
+When searching for a tiny model's hyperparameters, please run:
+```
+python3 searcher.py -t YOUR_TARGET_SIZE
+```
+After that, please follow the `README.md` files under each subfolder to train the tiny model via knowledge distillation.
 
-The scripts and instructions for each experiment are in the `README.md` files under each subfolder.
+For each experiment in our paper, the scripts and instructions  are in the `README.md` files under each subfolder.
 
 ## Misc
 
