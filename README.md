@@ -2,59 +2,48 @@
 
 This replication package contains the source code for fine-tuning pre-trained models, model simplification and training, as well as all trained compressed models.
 
-
-
 ## Environment configuration
 
-Please use a docker container with `PyTorch version >= 1.6`. For example,
-
+We provide a Dockerfile to help build the experimental environment. Please run the following scripts to to compile a docker image:
 ```
-docker run -it --gpus all -v <your repo path>:/workspace/Compressor --name <your container name> pytorch/pytorch:1.6.0-cuda10.1-cudnn7-devel
+docker build -t YOUR_CUSTOM_TAG .
 ```
+Be careful with the torch version that you need to use, modify the Dockerfile according to your cuda version pls.
 
-Which version of PyTorch should be used may be related to the version of cuda on your machine, please check carefully. Note that you can set `--cpus=<num>` to limit the used cpus in testing inference latency.
-
-Then, please install some necessary libraries:
-
+Then, please run the docker:
 ```
-pip install -r requirements.txt
+dokcer run -it -v YOUR_LOCAL_REPO_PATH:/root/Compressor --gpus all YOUR_CUSTOM_TAG
 ```
 
-## Directory structure
+After that, pls go inside the docker first, and then install some necessary libraries:
 
 ```
-.
-├── data
-│   ├── clond_detection (processed data)
-│   └── vulnerability_prediction (sampled and processed data)
-│ 
-├── src
-│   ├── clond_detection
-│   │   ├── baseline (trained models of the baseline)
-│   │   ├── checkpoint (trained models of compressed models)
-│   │   ├── compress (code for compressing models, including searching architecture and knowledge distillation)
-│   │   └── finetune (code for finetuning CodeBERT on clone detection)
-│   │
-│   └── vulnerability_prediction
-│       ├── baseline (trained models of the baseline)
-│       ├── checkpoint (trained models of compressed models)
-│       ├── compress (code for compressing models, including searching architecture and knowledge distillation)
-│       └── finetune (code for finetuning CodeBERT on vulnerability prediction)
-│ 
-├── src_gcb
-│   ├── clond_detection
-│   │   ├── baseline (trained models of the baseline)
-│   │   ├── checkpoint (trained models of compressed models)
-│   │   └── finetune (code for compressing and finetuning GraphCodeBERT on clone detection)
-│   │
-│   └── vulnerability_prediction
-│       ├── baseline (trained models of the baseline)
-│       ├── checkpoint (trained models of compressed models)
-│       └── finetune (code for compressing and finetuning GraphCodeBERT on vulnerability prediction)
-│ 
-└── parser (a parser to turn code into data flow graph, specifically designed for GraphCodeBERT, from its offical repository)
+pip3 install -r requirements.txt
+```
+
+GraphCodeBERT need a parser to extract data flows from the source code, please go to `./parser` to compile the parser first. Pls run:
+```
+cd parser
+bash build.sh
 ```
 
 ## How to run
 
-The scripts for each experiment are in the `<src or src_gcb>/<task>/<finetune or compress>/README.md`.
+The scripts and instructions for each experiment are in the `README.md` files under each subfolder.
+
+## Misc
+
+If you meet any problems when using the tool, please contact Jieke SHI by [jiekeshi@smu.edu.sg](mailto:jiekeshi@smu.edu.sg). Many thanks!
+
+If you use any code from our repo, pls cite:
+
+```
+@misc{https://doi.org/10.48550/arxiv.2208.07120,
+  url = {https://arxiv.org/abs/2208.07120},
+  author = {Shi, Jieke and Yang, Zhou and Xu, Bowen and Kang, Hong Jin and Lo, David},
+  title = {Compressing Pre-trained Models of Code into 3 MB},
+  publisher = {arXiv},
+  year = {2022}
+}
+
+```
