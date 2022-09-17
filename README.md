@@ -15,12 +15,6 @@ Then, please run the docker:
 dokcer run -it -v YOUR_LOCAL_REPO_PATH:/root/Compressor --gpus all YOUR_CUSTOM_TAG
 ```
 
-After that, pls go inside the docker first, and then install some necessary libraries:
-
-```
-pip3 install -r requirements.txt
-```
-
 GraphCodeBERT need a parser to extract data flows from the source code, please go to `./parser` to compile the parser first. Pls run:
 ```
 cd parser
