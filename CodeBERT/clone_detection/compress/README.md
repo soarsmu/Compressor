@@ -55,7 +55,7 @@ In our paper, the architecture-related hyperparamenters for 25 MB is `{'attentio
 
 We release a trained 25 MB model in `../checkpoint/25`. For evaluating this model, please run:
 ```
-CUDA_VISIBLE_DEVICES=2 python3 distill.py \
+CUDA_VISIBLE_DEVICES=1 python3 distill.py \
     --do_eval \
     --train_data_file=../../../data/clone_detection/unlabel_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \

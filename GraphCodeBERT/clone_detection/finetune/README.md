@@ -1,4 +1,8 @@
 ```
+wget https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/ES7ujFZxrvFLtV_2toiUzowBm73z5DS8zPl7DeAOo0wC8g?download=1 -O ../checkpoint/model.bin
+```
+
+```
 mkdir -p ../logs
 CUDA_VISIBLE_DEVICES=5,0 python main.py \
     --output_dir=../checkpoint \

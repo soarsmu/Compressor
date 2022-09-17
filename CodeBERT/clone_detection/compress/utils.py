@@ -94,7 +94,7 @@ class DistilledDataset(Dataset):
 
         if "train" in postfix:
             soft_labels = np.load(os.path.join(
-                folder, "preds_unlabel_train_gcb.npy")).tolist()
+                folder, "preds_unlabel_train.npy")).tolist()
 
         _mp_data = []
         for i, d in enumerate(data):

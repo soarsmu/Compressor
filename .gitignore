@@ -136,3 +136,5 @@ dmypy.json
 
 cached_*
 *.csv
+*.bin
+*.npy

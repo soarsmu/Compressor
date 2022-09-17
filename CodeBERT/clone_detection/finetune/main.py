@@ -156,8 +156,9 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
 
     logits = np.concatenate(logits, 0)
     labels = np.concatenate(labels, 0)
-
-    logits = F.softmax(logits)
+    if "unlabel_train" in args.eval_data_file:
+        np.save("../../../data/clone_detection/preds_unlabel_train", logits)
+    logits = F.softmax(torch.FloatTensor(logits))
     y_preds = logits[:, 1] > 0.5
     recall = recall_score(labels, y_preds)
     precision = precision_score(labels, y_preds)
@@ -259,7 +260,7 @@ def main():
             args.output_dir, "{}".format(checkpoint_prefix))
         model.load_state_dict({k.replace("module.", ""): v for k, v in torch.load(
             output_dir).items()}, strict=False)
-        model.to("cpu")
+        model.to(args.device)
         evaluate(args, model, tokenizer)
 
 

@@ -30,7 +30,10 @@ class TextDataset(Dataset):
         with open(index_filename) as f:
             for line in f:
                 line = line.strip()
-                url1, url2, label = line.split("\t")
+                if "unlabel_train" in args.eval_data_file:
+                    url1, url2, label, _ = line.split("\t")
+                else:
+                    url1, url2, label = line.split("\t")
                 if url1 not in url_to_code or url2 not in url_to_code:
                     continue
                 if label == "0":
