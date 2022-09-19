@@ -32,9 +32,9 @@ For each experiment in our paper, the scripts and instructions  are in the `READ
 
 ## Misc
 
-If you meet any problems when using the tool, please contact Jieke SHI by [jiekeshi@smu.edu.sg](mailto:jiekeshi@smu.edu.sg). Many thanks!
+If you meet any problems when using our code, please contact Jieke SHI by [jiekeshi@smu.edu.sg](mailto:jiekeshi@smu.edu.sg). Many thanks!
 
-If you use any code from our repo, pls cite:
+If you use any code from our repo in your paper, pls cite:
 
 ```
 @misc{https://doi.org/10.48550/arxiv.2208.07120,
