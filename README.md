@@ -2,8 +2,6 @@
 
 This replication package contains the source code for fine-tuning pre-trained models, model simplification and training, as well as all trained compressed models.
 
-Due to the random nature of neural networks, users may obtain slightly different results via retraining the models. Please note that such results usually can be tolerated, i.e., they mostly do not conflict with the conclusions of the paper.
-
 ## Environment configuration
 
 We provide a `Dockerfile` to help build the experimental environment. Please run the following scripts to to compile a docker image:
@@ -33,6 +31,8 @@ After that, please follow the `README.md` files under each subfolder to train th
 For each experiment in our paper, the scripts and instructions  are in the `README.md` files under each subfolder.
 
 ## Misc
+
+Due to the random nature of neural networks and our GA algorithm, users may obtain slightly different results. Please note that such results usually can be tolerated, i.e., they mostly do not conflict with the conclusions of the paper.
 
 If you meet any problems when using our code, please contact Jieke SHI by [jiekeshi@smu.edu.sg](mailto:jiekeshi@smu.edu.sg). Many thanks!
 
