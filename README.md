@@ -4,6 +4,8 @@ This replication package contains the source code for fine-tuning pre-trained mo
 
 ## Environment configuration
 
+To reproduce our experiments, machines with GPUs and NVIDIA CUDA toolkit are required.
+
 We provide a `Dockerfile` to help build the experimental environment. Please run the following scripts to to compile a docker image:
 ```
 docker build -t YOUR_CUSTOM_TAG .
