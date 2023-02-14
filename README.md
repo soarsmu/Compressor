@@ -42,10 +42,19 @@ If you use any code from our repo in your paper, pls cite:
 
 ```
 @inproceedings{shi2022compressing,
-  title={Compressing Pre-trained Models of Code into 3 MB},
-  author={Shi, Jieke and Yang, Zhou and Xu, Bowen and Kang, Hong Jin and Lo, David},
-  booktitle={37th IEEE/ACM International Conference on Automated Software Engineering},
-  pages={1--12},
-  year={2022}
+  author = {Shi, Jieke and Yang, Zhou and Xu, Bowen and Kang, Hong Jin and Lo, David},
+  title = {Compressing Pre-Trained Models of Code into 3 MB},
+  year = {2023},
+  isbn = {9781450394758},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/3551349.3556964},
+  doi = {10.1145/3551349.3556964},
+  booktitle = {Proceedings of the 37th IEEE/ACM International Conference on Automated Software Engineering},
+  articleno = {24},
+  numpages = {12},
+  keywords = {Pre-Trained Models, Model Compression, Genetic Algorithm},
+  location = {Rochester, MI, USA},
+  series = {ASE '22}
 }
 ```
