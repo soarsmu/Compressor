@@ -41,11 +41,11 @@ If you meet any problems when using our code, please contact Jieke SHI by [jieke
 If you use any code from our repo in your paper, pls cite:
 
 ```
-@misc{https://doi.org/10.48550/arxiv.2208.07120,
-  url = {https://arxiv.org/abs/2208.07120},
-  author = {Shi, Jieke and Yang, Zhou and Xu, Bowen and Kang, Hong Jin and Lo, David},
-  title = {Compressing Pre-trained Models of Code into 3 MB},
-  publisher = {arXiv},
-  year = {2022}
+@inproceedings{shi2022compressing,
+  title={Compressing Pre-trained Models of Code into 3 MB},
+  author={Shi, Jieke and Yang, Zhou and Xu, Bowen and Kang, Hong Jin and Lo, David},
+  booktitle={37th IEEE/ACM International Conference on Automated Software Engineering},
+  pages={1--12},
+  year={2022}
 }
 ```
