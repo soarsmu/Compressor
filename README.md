@@ -6,7 +6,7 @@ This replication package contains the source code for fine-tuning pre-trained mo
 
 To reproduce our experiments, machines with GPUs and NVIDIA CUDA toolkit are required.
 
-We provide a `Dockerfile` to help build the experimental environment. Please run the following scripts to to compile a docker image:
+We provide a `Dockerfile` to help build the experimental environment. Please run the following scripts to compile a docker image:
 ```
 docker build -t YOUR_CUSTOM_TAG .
 ```
@@ -14,7 +14,7 @@ Be careful with the torch version that you need to use, modify the `Dockerfile` 
 
 Then, please run the docker:
 ```
-dokcer run -it -v YOUR_LOCAL_REPO_PATH:/root/Compressor --gpus all YOUR_CUSTOM_TAG
+docker run -it -v YOUR_LOCAL_REPO_PATH:/root/Compressor --gpus all YOUR_CUSTOM_TAG
 ```
 
 GraphCodeBERT need a parser to extract data flows from the source code, please go to `./parser` to compile the parser first. Pls run:
