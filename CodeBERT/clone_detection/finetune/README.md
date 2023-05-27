@@ -9,7 +9,7 @@ For evaluating the fine-tuned model, please run:
 mkdir -p ../logs
 python3 main.py \
     --do_eval \
-    --train_data_file=../../../data/clone_detection/train_sampled.txt \
+    --train_data_file=../../../data/clone_detection/label_train.txt \
     --eval_data_file=../../../data/clone_detection/test_sampled.txt \
     --block_size 400 \
     --eval_batch_size 64 \
@@ -20,7 +20,7 @@ For getting soft labels to do knowledge distillation later, please run:
 ```
 python3 main.py \
     --do_eval \
-    --train_data_file=../../../data/clone_detection/train_sampled.txt \
+    --train_data_file=../../../data/clone_detection/label_train.txt \
     --eval_data_file=../../../data/clone_detection/unlabel_train.txt \
     --block_size 400 \
     --eval_batch_size 64 \
@@ -35,7 +35,7 @@ If you'd like to finetune a model from scratch, please run:
 ```
 python3 main.py \
     --do_train \
-    --train_data_file=../../../data/clone_detection/train_sampled.txt \
+    --train_data_file=../../../data/clone_detection/label_train.txt \
     --eval_data_file=../../../data/clone_detection/valid_sampled.txt \
     --epoch 5 \
     --block_size 400 \
