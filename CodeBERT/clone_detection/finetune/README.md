@@ -1,7 +1,7 @@
 We prepare the finetuned model here:
 You can download it via:
 ```
-wget https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/EdGD1SxoWqRDt0dVcqNO0TwBAluQj0KJA2DE9swMwUHkng?download=1 -O ../checkpoint/model.bin
+wget https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/EcTTfUcG_KlOleAsrevMv-IBL846LHKgBNxMYoRaIt4RLw?download=1 -O ../checkpoint/model.bin
 ```
 ## Evaluation
 For evaluating the fine-tuned model, please run:
@@ -26,7 +26,7 @@ python3 main.py \
     --eval_batch_size 64 \
     --seed 123456
 ```
-You will see the `preds_unlabel_train.npy` in `../../../data/clone_detection/`. 
+You will see the `preds_unlabel_train.npy` in `../../../data/clone_detection/`.
 
 You will also see that the log outputs say the accuracy is 0. Don't worry,  `unlabel_train.txt` has no true labels, so the accuracy is not true.
 

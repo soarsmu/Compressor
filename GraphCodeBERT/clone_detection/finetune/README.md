@@ -1,7 +1,7 @@
 We prepare the finetuned model here:
 You can download it via:
 ```
-wget https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/ES7ujFZxrvFLtV_2toiUzowBm73z5DS8zPl7DeAOo0wC8g?download=1 -O ../checkpoint/model.bin
+wget https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/EWntleLvrG1DhC5By_ryfLUBHwHn2KURPhzFDkZ10XujeA?download=1 -O ../checkpoint/model.bin
 ```
 GraphCodeBERT need a parser to extract data flows from the source code, please go to `./parser` to compile the parser first. Pls run:
 ```
@@ -53,7 +53,7 @@ python3 main.py \
     --evaluate_during_training \
     --seed 123456
 ```
-You will see the `preds_unlabel_train_gcb.npy` in `../../../data/clone_detection/`. 
+You will see the `preds_unlabel_train_gcb.npy` in `../../../data/clone_detection/`.
 
 You will also see that the log outputs say the accuracy is 0. Don't worry,  `unlabel_train.txt` has no true labels, so the accuracy is not true.
 
